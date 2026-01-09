@@ -1,0 +1,4 @@
+[workspace]
+resolver = "3"
+members = ["strands-metrics"]
+default-members = ["strands-metrics"]

@@ -1,0 +1,15 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-sqlite-viz
+    user: "0:0"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./../metrics.db:/var/lib/grafana/metrics.db:ro
+      - ./provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
+    environment:
+      - GF_INSTALL_PLUGINS=frser-sqlite-datasource
+      - GF_PLUGIN_FRSER_SQLITE_DATASOURCE_ALLOW_LOCAL_MODE=true
+    restart: always
