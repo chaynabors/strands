@@ -23,7 +23,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Sync {
-        #[clap(long, default_value = "30")]
+        #[clap(long, default_value = "7")]
         days_back: i64,
     },
     Query {
