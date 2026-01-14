@@ -1,3 +1,8 @@
+// --------------------------------------------------------------------------
+// AUTO-GENERATED FILE. DO NOT EDIT.
+// Source: spec/strands.md
+// --------------------------------------------------------------------------
+
 #ifndef STRANDS_STD_STRUCTS_H
 #define STRANDS_STD_STRUCTS_H
 
@@ -11,7 +16,7 @@ extern "C" {
 // --------------------------------------------------------------------------
 // Context Truncation
 // --------------------------------------------------------------------------
-typedef struct STRANDS_ALIGN(8) StrandsStdTruncate {
+typedef struct STRANDS_ALIGN(8) StrandsContextTruncate {
     StrandsStructureType s_type;
     uint32_t             reserved;
     void*                p_next;
@@ -21,7 +26,7 @@ typedef struct STRANDS_ALIGN(8) StrandsStdTruncate {
     uint32_t keep_count;
     const uint64_t* keep_ids;
     STRANDS_PAD_PTR(keep_ids);
-} StrandsStdTruncate;
+} StrandsContextTruncate;
 
 // --------------------------------------------------------------------------
 // Tool Definition
@@ -105,7 +110,7 @@ typedef struct STRANDS_ALIGN(8) StrandsHttpResponse {
 } StrandsHttpResponse;
 
 // Verify Binary Layout Consistency
-STRANDS_STATIC_ASSERT(sizeof(StrandsStdTruncate) % 8 == 0, "StrandsStdTruncate alignment error");
+STRANDS_STATIC_ASSERT(sizeof(StrandsContextTruncate) % 8 == 0, "StrandsContextTruncate alignment error");
 STRANDS_STATIC_ASSERT(sizeof(StrandsToolDefinition) % 8 == 0, "StrandsToolDefinition alignment error");
 STRANDS_STATIC_ASSERT(sizeof(StrandsToolResult) % 8 == 0, "StrandsToolResult alignment error");
 STRANDS_STATIC_ASSERT(sizeof(StrandsHttpRequest) % 8 == 0, "StrandsHttpRequest alignment error");

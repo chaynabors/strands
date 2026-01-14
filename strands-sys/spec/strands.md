@@ -1,9 +1,7 @@
 # Strands Specification 0.1.0
 
 **Status:** Draft (Stable Candidate)
-
 **Date:** 2026-01-13
-
 **Distribution:** Public
 
 ## Table of Contents
@@ -15,7 +13,7 @@
 5.  [**Binary Interface**](#5-binary-interface)
 6.  [**Memory Model**](#6-memory-model)
 7.  [**Host Interface**](#7-host-interface)
-8.  [**Standard Library Data Types**](#8-standard-library-data-types)
+8.  [**Data Structure Reference**](#8-data-structure-reference)
 9.  [**Standard Library Capabilities**](#9-standard-library-capabilities)
 10. [**Safety Contract & Undefined Behavior**](#10-safety-contract--undefined-behavior)
 11. [**Appendix A: Core Header**](#appendix-a-core-header)
@@ -54,25 +52,26 @@ Strands employs a non-blocking reactive state machine model. The Agent does not 
 
 The `weave` function is the primary entry point for execution. It defines a single transition of the state machine.
 
-1.  **Invocation:** The Host invokes `weave` with updated Timeline information and a buffer for error reporting.
+1.  **Invocation:** The Host invokes `weave` with the **[StrandsWeaveInfo](#83-execution-context-strandsweaveinfo)** structure and a buffer for error reporting.
 2.  **Processing:** The Plugin analyzes the Timeline.
 3.  **Result:** The Plugin returns a `StrandsResult` code:
     - `STRANDS_RESULT_SUCCESS`: The turn is complete. The Plugin returns an array of output events.
     - `STRANDS_RESULT_PENDING`: The Plugin has started a background task and yields execution.
-    - `STRANDS_RESULT_ERROR`: A fatal error (crash/panic) occurred. The Plugin MUST write a descriptive message to `out_error`.
+    - `STRANDS_RESULT_ERROR`: A fatal error (crash/panic) occurred. The Plugin MUST write a descriptive message to `error_buf`.
 
-**Error Safety:** To prevent reading from corrupted Plugin memory during a crash, the Host provides a fixed-size buffer (`out_error`, `out_error_cap`) for error messages. The Plugin writes directly to this Host-owned memory.
+**Error Safety:** To prevent reading from corrupted Plugin memory during a crash, the Host provides a fixed-size buffer (`error_buf`, `error_buf_size`) for error messages. The Plugin writes directly to this Host-owned memory.
 
 ### 3.2 Wake Signaling
 
 If a Plugin returns `STRANDS_RESULT_PENDING`, it assumes responsibility for resuming execution via the Host-provided worker mechanism.
 
 1.  **Spawn:** The Plugin prepares a **Flat** data packet (no internal pointers) and calls `host->spawn_worker(ctx, worker_id, flat_data, flat_len)`.
+    - _Note:_ `worker_id` is a Plugin-defined **Correlation Tag**. It is not a unique system handle. The Host preserves this ID and returns it in the next `weave` cycle to help the Plugin identify which task completed.
 2.  **Execution:** The Host block-copies the data and runs `plugin->run_worker` on a background thread.
 3.  **Completion:** When the worker finishes, it calls `host->wake(ctx, reason, result_data, result_len)`.
 4.  **Resumption:** The Host copies `result_data` to a main-thread buffer and schedules a new call to `weave`. This result is passed to the Plugin via `StrandsWeaveInfo::signal_data`.
 
-**Data Safety:** Because the Host performs a block copy, internal pointers within `flat_data` (e.g., `StrandsString.ptr` pointing to Arena memory) **WILL BE INVALID** inside the worker thread. Plugins **MUST** serialize worker data into a flat buffer (e.g., a contiguous byte array, JSON string, or a struct with no internal pointers) before calling `spawn_worker`.
+**Data Safety:** This "Loop-Back" design ensures the Plugin instance remains stateless regarding thread synchronization. The Plugin receives the worker's result as an input to the next Weave cycle.
 
 ---
 
@@ -102,55 +101,21 @@ To modify the Timeline, the Plugin emits events with specific `op_code` values.
 
 ## 5. Binary Interface
 
-### 5.1 Event Layout
+The Strands ABI is designed for strict cross-language and cross-architecture compatibility.
 
-The `StrandsEvent` structure uses a strictly aligned layout of **128 bytes**. This size corresponds to two standard CPU cache lines.
+### 5.1 Byte Order (Endianness)
 
-The layout explicitly supports **W3C Trace Context** (OpenTelemetry). `trace_id` fields are stored in **Network Byte Order**.
+All scalar types (integers, pointers, sizes, enumerations) defined in this specification are **Little Endian**.
 
-| Offset | Type          | Field            | Description                                        |
-| :----- | :------------ | :--------------- | :------------------------------------------------- |
-| 0      | `uint32_t`    | `s_type`         | Structure Type ID                                  |
-| 4      | `uint32_t`    | `flags`          | Bitmask for Persistence and Status                 |
-| 8      | `void*`       | `p_next`         | Pointer to extension structure (+4B pad on 32-bit) |
-| 16     | `uint64_t`    | `id`             | Host ID or Target ID                               |
-| 24     | `uint64_t`    | `correlation_id` | Origin Event ID                                    |
-| 32     | `const char*` | `kind.ptr`       | URI string pointer (+4B pad on 32-bit)             |
-| 40     | `size_t`      | `kind.len`       | URI string length (+4B pad on 32-bit)              |
-| 48     | `const void*` | `data`           | Payload pointer (+4B pad on 32-bit)                |
-| 56     | `size_t`      | `data_len`       | Payload size (+4B pad on 32-bit)                   |
-| 64     | `uint64_t`    | `timestamp`      | Nanoseconds since Unix Epoch                       |
-| 72     | `uint8_t[16]` | `trace_id`       | OTEL Trace ID (16 bytes, Network Byte Order)       |
-| 88     | `uint8_t[8]`  | `parent_span_id` | OTEL Parent Span ID (8 bytes, Network Byte Order)  |
-| 96     | `uint32_t`    | `op_code`        | Timeline Operation                                 |
-| 100    | `uint32_t`    | `format`         | Data Format                                        |
-| 104    | `uint8_t[24]` | `reserved`       | Padding to 128 bytes                               |
+- This applies to both Host and Plugin.
+- **Exception:** `trace_id` and `parent_span_id` arrays are opaque byte sequences that follow W3C standards (Network Byte Order).
 
-### 5.2 Field Semantics
-
-- **`s_type`**: Identifies the structure layout. MUST be `STRANDS_STRUCTURE_TYPE_EVENT`.
-- **`p_next`**: A pointer to a valid Strands structure extension or `NULL`.
-- **`correlation_id`**: The Host MUST populate this field when emitting response events. Plugins SHOULD populate this field when emitting reply events.
-- **`data`**: A pointer to the payload memory. The Kernel treats this as an opaque byte sequence defined by `format`. **Guaranteed Alignment:** The Host ensures this pointer is aligned to at least **8 bytes** to allow safe access by strongly-typed languages (Rust, Swift).
-- **`data_len`**:
-  - For **Flat Formats** (UTF8, JSON, Raw BYTES): The total size of the buffer in bytes.
-  - For **Structured Types** (Standard Library structs): The size of the container struct itself (e.g., `sizeof(StrandsHttpRequest)`). Internal pointers are not followed for length calculation.
-- **`op_code`**:
-  - `STRANDS_OP_APPEND`: Adds the event to the end of the Timeline.
-  - `STRANDS_OP_DELETE`: Removes the event with the matching `id`. Payload `data` is ignored.
-  - `STRANDS_OP_REPLACE`: Overwrites the event with the matching `id`.
-
-### 5.3 Cross-Architecture Compatibility (Wasm)
+### 5.2 Cross-Architecture Compatibility (Wasm)
 
 When a 32-bit Plugin (e.g., WebAssembly) communicates with a 64-bit Host:
 
 1.  **Zero Padding:** The Plugin MUST ensure that all padding bytes generated by `STRANDS_PAD_PTR` and `STRANDS_PAD_SIZE` are strictly set to **zero**. This ensures the Host reads valid 64-bit integers and prevents garbage data from being interpreted as high address bits.
 2.  **Pointer Translation:** Pointers passed from Wasm are **Linear Memory Offsets**. The Host MUST treat pointers received from a 32-bit Plugin as offsets relative to the Plugin's linear memory base address, not as valid Host Virtual Addresses.
-
-### 5.4 Endianness
-
-The Strands ABI mandates **Little Endian** byte order for all scalar types (integers, pointers, sizes). This applies to both Host and Plugin.
-_Exception:_ `trace_id` and `parent_span_id` arrays are opaque byte sequences and follow W3C standards (Network Byte Order).
 
 ---
 
@@ -165,6 +130,7 @@ The Host provides a linear bump-pointer allocator via `info->arena_alloc`.
 - **Usage:** Plugins SHOULD use this for temporary event allocations, output arrays, and short-lived strings.
 - **Lifetime:** Memory allocated in the Arena is valid **ONLY** until the `weave` function returns.
 - **Reset:** The Host resets the Arena immediately after the `weave` call returns.
+- **Failure:** If the Host runs out of Arena memory, `arena_alloc` returns `NULL`. The Plugin MUST handle this case.
 
 ### 6.2 Persistence Strategy
 
@@ -203,7 +169,7 @@ The Host Interface separates logical capability negotiation from data format neg
 
 ### 7.1 Lifecycle and Configuration
 
-The Host initializes the Plugin via the `create` function. This function accepts a `StrandsConfig` structure, allowing the Host to inject environment variables, security capabilities, and runtime settings directly into the Plugin instance.
+The Host initializes the Plugin via the `create` function. This function accepts a **[StrandsConfig](#84-lifecycle-configuration)** structure, allowing the Host to inject environment variables, security capabilities, and runtime settings directly into the Plugin instance.
 
 ### 7.2 Logical Capabilities
 
@@ -220,24 +186,161 @@ The `supported_formats_mask` allows the Host to declare which data layouts it ca
 
 The Host provides `spawn_worker` to allow Plugins to execute long-running tasks without blocking the main thread. This abstracts the underlying threading model, which may be POSIX threads, Windows threads, or Web Workers. The Host calls the Plugin's `run_worker` function in the new thread context.
 
-**Context Safety:** The `ctx` passed to `run_worker` is a unique, thread-safe handle valid only for the duration of that worker. It MUST NOT be confused with the main thread's context.
 **Warning:** Data passed to `spawn_worker` must be **Flat**. Do not pass pointers to ephemeral Arena memory. The Host performs a simple block copy of the `flat_data` buffer.
 **Minimum Guarantee:** All Hosts MUST support a worker payload size of at least **64KB**.
 **Safety Valve:** To prevent resource exhaustion, the Host MAY enforce a maximum size limit on `flat_data` (e.g., 1MB) and return an error if the Plugin exceeds it.
 
 ---
 
-## 8. Standard Library Data Types
+## 8. Data Structure Reference
 
-The Standard Library defines schemas for system interaction. To maximize performance and interoperability, strict binary layouts are available alongside serialized formats.
+This section defines the canonical binary layouts for all structures used in the Strands ABI. All padding bytes (`reserved`, `_pad`) **MUST** be initialized to zero.
 
-### 8.1 Canonical Binary Layouts
+### 8.1 Event Envelope (`StrandsEvent`)
 
-When `format` is set to `STRANDS_FMT_BYTES`, the `data` pointer MUST point to a packed binary structure as defined in **Appendix C**. This allows zero-copy communication between C/C++ Plugins and the Host.
+The core unit of communication. Aligned to 128 bytes (two cache lines).
 
-### 8.2 String Type
+| Offset | Type          | Field            | Description                              |
+| :----- | :------------ | :--------------- | :--------------------------------------- |
+| 0      | `uint32_t`    | `s_type`         | Structure Type ID                        |
+| 4      | `uint32_t`    | `flags`          | Bitmask for Persistence and Status       |
+| 8      | `void*`       | `p_next`         | Pointer to extension structure           |
+| 16     | `uint64_t`    | `id`             | Host ID or Target ID                     |
+| 24     | `uint64_t`    | `correlation_id` | Origin Event ID                          |
+| 32     | `const char*` | `kind.ptr`       | URI string pointer                       |
+| 40     | `size_t`      | `kind.len`       | URI string length                        |
+| 48     | `const void*` | `data`           | Payload pointer (8-byte aligned)         |
+| 56     | `size_t`      | `data_len`       | Payload size                             |
+| 64     | `uint64_t`    | `timestamp`      | Nanoseconds since Unix Epoch             |
+| 72     | `uint8_t[16]` | `trace_id`       | OTEL Trace ID (Network Byte Order)       |
+| 88     | `uint8_t[8]`  | `parent_span_id` | OTEL Parent Span ID (Network Byte Order) |
+| 96     | `uint32_t`    | `op_code`        | Timeline Operation                       |
+| 100    | `uint32_t`    | `format`         | Data Format                              |
+| 104    | `uint8_t[24]` | `reserved`       | Padding to 128 bytes                     |
 
-All strings in the binary interface use the `StrandsString` structure, containing a pointer and a length. Null-termination is NOT required.
+### 8.2 Primitives
+
+**String (`StrandsString`)**
+Non-owning string view. Not null-terminated.
+
+| Offset | Type     | Field | Description             |
+| :----- | :------- | :---- | :---------------------- |
+| 0      | `char*`  | `ptr` | Pointer to string bytes |
+| 8      | `size_t` | `len` | Length in bytes         |
+
+**Pair (`StrandsPair`)**
+Key-Value pair used for headers and configuration.
+
+| Offset | Type            | Field   | Description  |
+| :----- | :-------------- | :------ | :----------- |
+| 0      | `StrandsString` | `key`   | Key string   |
+| 16     | `StrandsString` | `value` | Value string |
+
+### 8.3 Execution Context (`StrandsWeaveInfo`)
+
+Passed to `weave` on every turn. 128-byte aligned.
+
+| Offset | Type             | Field                 | Description                |
+| :----- | :--------------- | :-------------------- | :------------------------- |
+| 0      | `uint32_t`       | `s_type`              | Structure Type ID          |
+| 4      | `uint32_t`       | `_pad0`               | Alignment padding          |
+| 8      | `void*`          | `p_next`              | Extension pointer          |
+| 16     | `StrandsContext` | `ctx`                 | Host Context Handle        |
+| 24     | `uint64_t`       | `time_budget_hint_ns` | Time budget remaining (ns) |
+| 32     | `uint64_t`       | `context_tokens_used` | Current token usage        |
+| 40     | `uint64_t`       | `context_tokens_max`  | Maximum token window       |
+| 48     | `uint32_t`       | `signal_worker_id`    | Worker Correlation ID      |
+| 52     | `uint32_t`       | `signal_reason`       | Worker Wake Reason         |
+| 56     | `const void*`    | `signal_data`         | Result data from worker    |
+| 64     | `size_t`         | `signal_data_len`     | Size of result data        |
+| 72     | `PFN_Alloc`      | `arena_alloc`         | Arena Allocator Function   |
+| 80     | `void*`          | `arena_user_data`     | Allocator Context          |
+| 88     | `size_t`         | `timeline_len`        | Total Timeline Events      |
+| 96     | `uint64_t`       | `last_event_id`       | ID of most recent event    |
+| 104    | `uint8_t[24]`    | `reserved`            | Padding to 128 bytes       |
+
+### 8.4 Lifecycle Configuration (`StrandsConfig`)
+
+Passed once during `create`.
+
+| Offset | Type           | Field               | Description              |
+| :----- | :------------- | :------------------ | :----------------------- |
+| 0      | `uint32_t`     | `s_type`            | Structure Type ID        |
+| 4      | `uint32_t`     | `debug_mode`        | 1 = Enable extra checks  |
+| 8      | `void*`        | `p_next`            | Extension pointer        |
+| 16     | `uint64_t`     | `capabilities_mask` | Allowed capabilities     |
+| 24     | `size_t`       | `entry_count`       | Number of config pairs   |
+| 32     | `StrandsPair*` | `entries`           | Array of Key/Value pairs |
+
+### 8.5 Standard Library: Context Management (`StrandsContextTruncate`)
+
+| Offset | Type        | Field        | Description               |
+| :----- | :---------- | :----------- | :------------------------ |
+| 0      | `uint32_t`  | `s_type`     | Structure Type ID         |
+| 4      | `uint32_t`  | `reserved`   | Padding (Zero)            |
+| 8      | `void*`     | `p_next`     | Extension pointer         |
+| 16     | `uint32_t`  | `count`      | Items to remove from head |
+| 20     | `uint32_t`  | `keep_count` | Size of `keep_ids` array  |
+| 24     | `uint64_t*` | `keep_ids`   | IDs to preserve           |
+
+### 8.6 Standard Library: Tooling
+
+**Definition (`StrandsToolDefinition`)**
+
+| Offset | Type            | Field          | Description       |
+| :----- | :-------------- | :------------- | :---------------- |
+| 0      | `uint32_t`      | `s_type`       | Structure Type ID |
+| 4      | `uint32_t`      | `reserved`     | Padding (Zero)    |
+| 8      | `void*`         | `p_next`       | Extension pointer |
+| 16     | `StrandsString` | `name`         | Tool Name         |
+| 32     | `StrandsString` | `description`  | Description       |
+| 48     | `StrandsString` | `input_schema` | Schema string     |
+| 64     | `uint32_t`      | `input_format` | Expected format   |
+| 68     | `uint32_t`      | `_pad0`        | Alignment padding |
+
+**Result (`StrandsToolResult`)**
+
+| Offset | Type            | Field           | Description           |
+| :----- | :-------------- | :-------------- | :-------------------- |
+| 0      | `uint32_t`      | `s_type`        | Structure Type ID     |
+| 4      | `uint32_t`      | `status`        | 0=OK, Non-zero=Error  |
+| 8      | `void*`         | `p_next`        | Extension pointer     |
+| 16     | `StrandsString` | `tool_name`     | Name of tool executed |
+| 32     | `void*`         | `output`        | Output Data           |
+| 40     | `size_t`        | `output_len`    | Output size           |
+| 48     | `uint32_t`      | `output_format` | Format of output      |
+| 52     | `uint32_t`      | `_pad0`         | Alignment padding     |
+
+### 8.7 Standard Library: HTTP
+
+**Request (`StrandsHttpRequest`)**
+
+| Offset | Type            | Field          | Description       |
+| :----- | :-------------- | :------------- | :---------------- |
+| 0      | `uint32_t`      | `s_type`       | Structure Type ID |
+| 4      | `uint32_t`      | `reserved`     | Padding (Zero)    |
+| 8      | `void*`         | `p_next`       | Extension pointer |
+| 16     | `StrandsString` | `method`       | Method String     |
+| 32     | `StrandsString` | `url`          | URL String        |
+| 48     | `uint32_t`      | `header_count` | Number of headers |
+| 52     | `uint32_t`      | `pad0`         | Alignment padding |
+| 56     | `StrandsPair*`  | `headers`      | Header Array      |
+| 64     | `void*`         | `body`         | Body Payload      |
+| 72     | `size_t`        | `body_len`     | Body Size         |
+
+**Response (`StrandsHttpResponse`)**
+
+| Offset | Type            | Field          | Description       |
+| :----- | :-------------- | :------------- | :---------------- |
+| 0      | `uint32_t`      | `s_type`       | Structure Type ID |
+| 4      | `uint32_t`      | `reserved`     | Padding (Zero)    |
+| 8      | `void*`         | `p_next`       | Extension pointer |
+| 16     | `uint32_t`      | `status`       | HTTP Status Code  |
+| 20     | `uint32_t`      | `header_count` | Number of headers |
+| 24     | `StrandsPair*`  | `headers`      | Header Array      |
+| 32     | `void*`         | `body`         | Body Payload      |
+| 40     | `size_t`        | `body_len`     | Body Size         |
+| 48     | `StrandsString` | `error_msg`    | Transport error   |
 
 ---
 
@@ -251,8 +354,8 @@ All strings in the binary interface use the `StrandsString` structure, containin
 Requests the Host to remove older events to free token context.
 
 - **OpCode:** `STRANDS_OP_COMMAND` (Transient)
-- **Payload:** `StrandsStdTruncate`
-- **Behavior:** The Host deletes the `count` oldest events from the Timeline. Any Event IDs specified in `keep_ids` are exempted from deletion, allowing the Plugin to preserve specific memories (e.g. System Prompt, User Persona).
+- **Payload:** `StrandsContextTruncate`
+- **Behavior:** The Host deletes the `count` oldest events from the Timeline. Any Event IDs specified in `keep_ids` are exempted from deletion.
 
 ### 9.2 Networking
 
@@ -285,7 +388,7 @@ Requests the Host to remove older events to free token context.
 
 - **OpCode:** `STRANDS_OP_APPEND` (Historical)
 - **Purpose:** Advertises a tool (Function) availability to the Agent.
-- **Lifecycle:** To remove a tool, the Host or Plugin emits a `STRANDS_OP_DELETE` event targeting the ID of the original Tool Definition. The Host updates its active tool index accordingly.
+- **Lifecycle:** To remove a tool, the Host or Plugin emits a `STRANDS_OP_DELETE` event targeting the ID of the original Tool Definition.
 
 #### Invocation
 
@@ -352,8 +455,8 @@ If the Host detects a violation of this contract (e.g., OOB access, invalid enum
 **Filename:** `strands.h`
 
 ```c
-#ifndef STRANDS_CORE_H
-#define STRANDS_CORE_H
+#ifndef STRANDS_H
+#define STRANDS_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -422,7 +525,7 @@ If the Host detects a violation of this contract (e.g., OOB access, invalid enum
 typedef enum StrandsResult {
     STRANDS_RESULT_SUCCESS = 0,
     STRANDS_RESULT_PENDING = 1,
-    STRANDS_RESULT_ERROR   = -1 // Fatal Crash. Write to out_error.
+    STRANDS_RESULT_ERROR   = -1 // Fatal Crash. Write to error_buf.
 } StrandsResult;
 
 typedef enum StrandsDataFormat {
@@ -451,15 +554,15 @@ typedef enum StrandsEventFlags {
 } StrandsEventFlags;
 
 typedef enum StrandsStructureType {
-    STRANDS_STRUCTURE_TYPE_EVENT           = 0,
-    STRANDS_STRUCTURE_TYPE_STD_TRUNCATE    = 1,
-    STRANDS_STRUCTURE_TYPE_WEAVE_INFO      = 2,
-    STRANDS_STRUCTURE_TYPE_CONFIG          = 3,
-    STRANDS_STRUCTURE_TYPE_HTTP_REQUEST    = 100,
-    STRANDS_STRUCTURE_TYPE_HTTP_RESPONSE   = 101,
-    STRANDS_STRUCTURE_TYPE_TOOL_DEF        = 102,
-    STRANDS_STRUCTURE_TYPE_TOOL_RESULT     = 103,
-    STRANDS_STRUCTURE_TYPE_MAX             = 0x7FFFFFFF
+    STRANDS_STRUCTURE_TYPE_EVENT            = 0,
+    STRANDS_STRUCTURE_TYPE_CONTEXT_TRUNCATE = 1,
+    STRANDS_STRUCTURE_TYPE_WEAVE_INFO       = 2,
+    STRANDS_STRUCTURE_TYPE_CONFIG           = 3,
+    STRANDS_STRUCTURE_TYPE_HTTP_REQUEST     = 100,
+    STRANDS_STRUCTURE_TYPE_HTTP_RESPONSE    = 101,
+    STRANDS_STRUCTURE_TYPE_TOOL_DEF         = 102,
+    STRANDS_STRUCTURE_TYPE_TOOL_RESULT      = 103,
+    STRANDS_STRUCTURE_TYPE_MAX              = 0x7FFFFFFF
 } StrandsStructureType;
 
 // --------------------------------------------------------------------------
@@ -518,7 +621,7 @@ typedef struct STRANDS_ALIGN(16) StrandsEvent {
 
     uint64_t             timestamp; // Unix Nanoseconds
 
-    // OpenTelemetry W3C Trace Context (Opaque Bytes, Network Byte Order)
+    // OpenTelemetry W3C Trace Context (Opaque Bytes, Big Endian)
     uint8_t              trace_id[16];
     uint8_t              parent_span_id[8];
 
@@ -611,16 +714,26 @@ typedef struct StrandsHostInterface {
     // Random Access
     size_t (*get_timeline_len)(StrandsContext ctx);
     STRANDS_PAD_PTR(get_timeline_len);
-    int    (*read_timeline)(StrandsContext ctx, size_t idx, StrandsEvent* out_event);
+
+    // Returns 0 on success, < 0 on error.
+    // Pointers in out_event (like kind.ptr) point into aux_buf.
+    int    (*read_timeline)(StrandsContext ctx, size_t idx,
+                            StrandsEvent* out_event,
+                            void* aux_buf, size_t aux_buf_size);
     STRANDS_PAD_PTR(read_timeline);
-    int    (*find_event)(StrandsContext ctx, uint64_t id, StrandsEvent* out_event);
+
+    int    (*find_event)(StrandsContext ctx, uint64_t id,
+                         StrandsEvent* out_event,
+                         void* aux_buf, size_t aux_buf_size);
     STRANDS_PAD_PTR(find_event);
 
-    // O(1) Tool Discovery
-    // Returns active tool count. If out_tools != NULL, fills buffer.
+    // O(1) Tool Discovery (Uses aux_buf for tool name strings)
+    // Returns active tool count. If out_tools != NULL, fills array.
     size_t (*get_active_tools)(StrandsContext ctx,
                                void* out_tools, // StrandsToolDefinition*
-                               size_t cap);
+                               size_t out_tools_size,
+                               void* aux_buf,
+                               size_t aux_buf_size);
     STRANDS_PAD_PTR(get_active_tools);
 
 } StrandsHostInterface;
@@ -643,11 +756,11 @@ typedef struct StrandsPluginInterface {
     STRANDS_PAD_PTR(prepare);
 
     // Returns success/pending/error code.
-    // On STRANDS_RESULT_ERROR, plugin writes explanation to out_error.
+    // On STRANDS_RESULT_ERROR, plugin writes explanation to error_buf.
     // Plugin sets *out_events to point to the array allocated in the Arena.
     StrandsResult (*weave)(void* instance, const StrandsWeaveInfo* info,
                            StrandsEvent** out_events, size_t* out_count,
-                           char* out_error, size_t out_error_cap);
+                           char* error_buf, size_t error_buf_size);
     STRANDS_PAD_PTR(weave);
 
     // Worker Dispatch
@@ -675,10 +788,7 @@ typedef const StrandsPluginInterface* (*PFN_StrandsGetPlugin)(void);
 #if defined(__cplusplus)
 }
 #endif
-#endif // STRANDS_CORE_H
-
-
-// test
+#endif // STRANDS_H
 ```
 
 ## Appendix B: Standard Library Header
@@ -744,7 +854,7 @@ extern "C" {
 // --------------------------------------------------------------------------
 // Context Truncation
 // --------------------------------------------------------------------------
-typedef struct STRANDS_ALIGN(8) StrandsStdTruncate {
+typedef struct STRANDS_ALIGN(8) StrandsContextTruncate {
     StrandsStructureType s_type;
     uint32_t             reserved;
     void*                p_next;
@@ -754,7 +864,7 @@ typedef struct STRANDS_ALIGN(8) StrandsStdTruncate {
     uint32_t keep_count;
     const uint64_t* keep_ids;
     STRANDS_PAD_PTR(keep_ids);
-} StrandsStdTruncate;
+} StrandsContextTruncate;
 
 // --------------------------------------------------------------------------
 // Tool Definition
@@ -838,7 +948,7 @@ typedef struct STRANDS_ALIGN(8) StrandsHttpResponse {
 } StrandsHttpResponse;
 
 // Verify Binary Layout Consistency
-STRANDS_STATIC_ASSERT(sizeof(StrandsStdTruncate) % 8 == 0, "StrandsStdTruncate alignment error");
+STRANDS_STATIC_ASSERT(sizeof(StrandsContextTruncate) % 8 == 0, "StrandsContextTruncate alignment error");
 STRANDS_STATIC_ASSERT(sizeof(StrandsToolDefinition) % 8 == 0, "StrandsToolDefinition alignment error");
 STRANDS_STATIC_ASSERT(sizeof(StrandsToolResult) % 8 == 0, "StrandsToolResult alignment error");
 STRANDS_STATIC_ASSERT(sizeof(StrandsHttpRequest) % 8 == 0, "StrandsHttpRequest alignment error");

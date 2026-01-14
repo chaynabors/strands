@@ -1,32 +1,112 @@
 use std::env;
 use std::fs;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 fn main() {
-    let header_core = "include/strands_core.h";
-    let header_std = "include/strands_std.h";
-    let header_structs = "include/strands_std_structs.h";
     let spec_file = "spec/strands.md";
 
-    generate_bindings(header_core);
+    let header_mappings = [
+        ("## Appendix A: Core Header", "include/strands.h"),
+        (
+            "## Appendix B: Standard Library Header",
+            "include/strands_std.h",
+        ),
+        (
+            "## Appendix C: Canonical Binary Layouts",
+            "include/strands_std_structs.h",
+        ),
+    ];
 
-    if let Err(e) = update_spec_documentation(spec_file, header_core, header_std, header_structs) {
-        println!("cargo:warning=Failed to update spec documentation: {}", e);
+    // 1. Sync C Headers from Markdown
+    if let Err(e) = sync_headers_from_spec(spec_file, &header_mappings) {
+        panic!("Failed to sync headers from spec: {}", e);
     }
+
+    // 2. Generate Rust Bindings
+    generate_bindings();
 }
 
-/// Generates Rust FFI bindings from the C headers using bindgen.
-///
-/// This configures strict allow-lists to ensure only `Strands`-related symbols
-/// are exposed to the Rust crate, and treats `StrandsEventFlags` as a bitfield.
-/// The output is written to `bindings.rs` in the cargo build directory.
-fn generate_bindings(entry_header: &str) {
-    println!("cargo:rerun-if-changed={}", entry_header);
-    // Note: We don't explicitly list dependent headers here because
-    // bindgen::CargoCallbacks handles dependency discovery automatically.
+/// Parses the Markdown specification and writes the C code blocks to files.
+fn sync_headers_from_spec(spec_path: &str, mappings: &[(&str, &str)]) -> io::Result<()> {
+    println!("cargo:rerun-if-changed={}", spec_path);
+
+    let content = fs::read_to_string(spec_path)?;
+    let lines: Vec<&str> = content.lines().collect();
+
+    fs::create_dir_all("include")?;
+
+    for (section_title, output_filename) in mappings {
+        let mut found_section = false;
+        let mut inside_code_block = false;
+        let mut captured_code = String::new();
+
+        captured_code.push_str(
+            "// --------------------------------------------------------------------------\n",
+        );
+        captured_code.push_str("// AUTO-GENERATED FILE. DO NOT EDIT.\n");
+        captured_code.push_str(&format!("// Source: {}\n", spec_path));
+        captured_code.push_str(
+            "// --------------------------------------------------------------------------\n\n",
+        );
+
+        for line in &lines {
+            if !found_section {
+                if line.trim_end() == *section_title {
+                    found_section = true;
+                }
+                continue;
+            }
+
+            if !inside_code_block {
+                if line.trim().starts_with("```") {
+                    inside_code_block = true;
+                }
+                continue;
+            }
+
+            if inside_code_block {
+                if line.trim().starts_with("```") {
+                    break;
+                }
+                captured_code.push_str(line);
+                captured_code.push('\n');
+            }
+        }
+
+        if found_section {
+            let mut file = fs::File::create(output_filename)?;
+            file.write_all(captured_code.as_bytes())?;
+            println!(
+                "cargo:warning=Updated {} from specification.",
+                output_filename
+            );
+        } else {
+            println!(
+                "cargo:warning=Section '{}' not found in specification.",
+                section_title
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Generates Rust FFI bindings using a composite wrapper.
+fn generate_bindings() {
+    let wrapper_path = "include/strands_wrapper.h";
+
+    // Create a temporary wrapper header that includes everything
+    let mut wrapper_file = fs::File::create(wrapper_path).expect("Could not create wrapper.h");
+    writeln!(wrapper_file, "#include \"strands.h\"").unwrap();
+    writeln!(wrapper_file, "#include \"strands_std.h\"").unwrap();
+    writeln!(wrapper_file, "#include \"strands_std_structs.h\"").unwrap();
+
+    println!("cargo:rerun-if-changed={}", wrapper_path);
 
     let bindings = bindgen::Builder::default()
-        .header(entry_header)
+        .header(wrapper_path)
+        .clang_arg("-Iinclude") // Ensure clang can find the headers
         .use_core()
         .ctypes_prefix("core::ffi")
         .derive_default(true)
@@ -53,72 +133,6 @@ fn generate_bindings(entry_header: &str) {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
-}
 
-/// Updates the Markdown specification to ensure it matches the actual C headers.
-///
-/// This function treats the files in `include/` as the source of truth. It reads
-/// `spec/strands.md`, locates the Appendix sections, and injects the raw content
-/// of the header files into the corresponding code blocks.
-fn update_spec_documentation(
-    spec_path: &str,
-    core_path: &str,
-    std_path: &str,
-    structs_path: &str,
-) -> std::io::Result<()> {
-    println!("cargo:rerun-if-changed={}", spec_path);
-    println!("cargo:rerun-if-changed={}", core_path);
-    println!("cargo:rerun-if-changed={}", std_path);
-    println!("cargo:rerun-if-changed={}", structs_path);
-
-    let content = fs::read_to_string(spec_path)?;
-    let mut lines = content.lines();
-    let mut new_output = String::with_capacity(content.len());
-
-    let core_content = fs::read_to_string(core_path)?;
-    let std_content = fs::read_to_string(std_path)?;
-    let structs_content = fs::read_to_string(structs_path)?;
-
-    let replacements = [
-        ("## Appendix A: Core Header", core_content),
-        ("## Appendix B: Standard Library Header", std_content),
-        ("## Appendix C: Canonical Binary Layouts", structs_content),
-    ];
-
-    while let Some(line) = lines.next() {
-        new_output.push_str(line);
-        new_output.push('\n');
-
-        for (header, file_content) in &replacements {
-            if line.trim_end() == *header {
-                // Advance to the code block start
-                for sub_line in lines.by_ref() {
-                    new_output.push_str(sub_line);
-                    new_output.push('\n');
-                    if sub_line.trim().starts_with("```") {
-                        break;
-                    }
-                }
-
-                new_output.push_str(file_content);
-                if !file_content.ends_with('\n') {
-                    new_output.push('\n');
-                }
-
-                // Skip existing markdown content until the code block ends
-                for skip_line in lines.by_ref() {
-                    if skip_line.trim().starts_with("```") {
-                        new_output.push_str(skip_line);
-                        new_output.push('\n');
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-    }
-
-    fs::write(spec_path, new_output)?;
-
-    Ok(())
+    fs::remove_file(wrapper_path).ok();
 }
