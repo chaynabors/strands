@@ -1,4 +1,4 @@
 [workspace]
 resolver = "3"
-members = ["strands-metrics", "strands-rs"]
+members = ["strands-metrics", "strands-rs", "strands-sys"]
 default-members = ["strands-metrics"]
