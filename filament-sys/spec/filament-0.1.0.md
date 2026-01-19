@@ -1,7 +1,9 @@
 # Filament Specification 0.1.0
 
 **Status:** Request for Comments
+
 **Date:** 2026-01-19
+
 **Distribution:** Public
 
 ## Table of Contents
