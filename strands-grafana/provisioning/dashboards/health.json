@@ -1,0 +1,1025 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 4,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "panels": [],
+      "title": "Friction & Health",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "SELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo as metric, \n  open_issues_count as value \nFROM daily_metrics \nWHERE repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \nORDER BY date ASC",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo as metric, \n  open_issues_count as value \nFROM daily_metrics \nWHERE repo IN (${repo:singlequote}) \nORDER BY date ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "Total Open Issues",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "SELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo as metric, \n  stars as value \nFROM daily_metrics \nWHERE repo IN (${repo:singlequote}) \nORDER BY date ASC",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo as metric, \n  stars as value \nFROM daily_metrics \nWHERE repo IN (${repo:singlequote}) \nORDER BY date ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "Total Stars",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "SELECT \n  CAST(strftime('%s', d.date) as INTEGER) as time,\n  d.repo as metric,\n  (\n    SELECT COUNT(DISTINCT p.author)\n    FROM pull_requests p\n    WHERE p.repo = d.repo\n      AND p.created_at > date(d.date, '-7 days')\n      AND p.created_at <= date(d.date, '+1 day')\n      AND json_extract(p.data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n  ) as value\nFROM daily_metrics d\nWHERE d.repo IN (${repo:singlequote})\nORDER BY d.date ASC",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  CAST(strftime('%s', d.date) as INTEGER) as time,\n  d.repo as metric,\n  (\n    SELECT COUNT(DISTINCT p.author)\n    FROM pull_requests p\n    WHERE p.repo = d.repo\n      AND p.created_at > date(d.date, '-7 days')\n      AND p.created_at <= date(d.date, '+1 day')\n      AND json_extract(p.data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n  ) as value\nFROM daily_metrics d\nWHERE d.repo IN (${repo:singlequote})\nORDER BY d.date ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "Weekly Active External Contributors",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "-- Internal Rejection\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (Internal)' as metric, count(*) as value \nFROM pull_requests \nWHERE state = 'closed' AND merged_at IS NULL AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External Rejection\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (External)' as metric, count(*) as value \nFROM pull_requests \nWHERE state = 'closed' AND merged_at IS NULL AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2 ORDER BY 1 ASC",
+          "queryType": "table",
+          "rawQueryText": "-- Internal Rejection\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (Internal)' as metric, count(*) as value \nFROM pull_requests \nWHERE state = 'closed' AND merged_at IS NULL AND repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External Rejection\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (External)' as metric, count(*) as value \nFROM pull_requests \nWHERE state = 'closed' AND merged_at IS NULL AND repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2 ORDER BY 1 ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "PRs Closed Without Merging",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 4,
+      "panels": [],
+      "title": "Volume",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 2,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "normal",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "-- Internal\nSELECT CAST(strftime('%s', date(created_at)) as INTEGER) as time, repo || ' (Internal)' as metric, COUNT(*) as value \nFROM issues \nWHERE repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External\nSELECT CAST(strftime('%s', date(created_at)) as INTEGER) as time, repo || ' (External)' as metric, COUNT(*) as value \nFROM issues \nWHERE repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\nORDER BY 1 ASC",
+          "queryType": "table",
+          "rawQueryText": "-- Internal\nSELECT CAST(strftime('%s', date(created_at)) as INTEGER) as time, repo || ' (Internal)' as metric, COUNT(*) as value \nFROM issues \nWHERE repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External\nSELECT CAST(strftime('%s', date(created_at)) as INTEGER) as time, repo || ' (External)' as metric, COUNT(*) as value \nFROM issues \nWHERE repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\nORDER BY 1 ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "Issues Opened (Daily)",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 3,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "-- Internal\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (Internal)' as metric, COUNT(*) as value \nFROM issues \nWHERE closed_at IS NOT NULL AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (External)' as metric, COUNT(*) as value \nFROM issues \nWHERE closed_at IS NOT NULL AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\nORDER BY 1 ASC",
+          "queryType": "table",
+          "rawQueryText": "-- Internal\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (Internal)' as metric, COUNT(*) as value \nFROM issues \nWHERE closed_at IS NOT NULL AND repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External\nSELECT CAST(strftime('%s', date(closed_at)) as INTEGER) as time, repo || ' (External)' as metric, COUNT(*) as value \nFROM issues \nWHERE closed_at IS NOT NULL AND repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\nORDER BY 1 ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "Issues Closed (Daily)",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 1,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "normal",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "P2289B60D79A89B0C"
+          },
+          "queryText": "-- Internal (Team)\nSELECT CAST(strftime('%s', date(merged_at)) as INTEGER) as time, repo || ' (Internal)' as metric, COUNT(*) as value \nFROM pull_requests \nWHERE merged_at IS NOT NULL AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External (Community)\nSELECT CAST(strftime('%s', date(merged_at)) as INTEGER) as time, repo || ' (External)' as metric, COUNT(*) as value \nFROM pull_requests \nWHERE merged_at IS NOT NULL AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\nORDER BY 1 ASC",
+          "queryType": "table",
+          "rawQueryText": "-- Internal (Team)\nSELECT CAST(strftime('%s', date(merged_at)) as INTEGER) as time, repo || ' (Internal)' as metric, COUNT(*) as value \nFROM pull_requests \nWHERE merged_at IS NOT NULL AND repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\n\nUNION ALL\n\n-- External (Community)\nSELECT CAST(strftime('%s', date(merged_at)) as INTEGER) as time, repo || ' (External)' as metric, COUNT(*) as value \nFROM pull_requests \nWHERE merged_at IS NOT NULL AND repo IN (${repo:singlequote}) \n  AND json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') \nGROUP BY 1, 2\nORDER BY 1 ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "PRs Merged (Daily)",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 5,
+      "panels": [],
+      "title": "Speed",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "SELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (Internal)' as metric, \n  AVG(time_to_merge_internal) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics \nWHERE repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') AND time_to_merge_internal > 0 \n\nUNION ALL \n\nSELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (External)' as metric, \n  AVG(time_to_merge_external) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics \nWHERE repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') AND time_to_merge_external > 0 \nORDER BY time ASC",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (Internal)' as metric, \n  AVG(time_to_merge_internal) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics \nWHERE repo IN (${repo:singlequote}) AND time_to_merge_internal > 0 \n\nUNION ALL \n\nSELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (External)' as metric, \n  AVG(time_to_merge_external) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics \nWHERE repo IN (${repo:singlequote}) AND time_to_merge_external > 0 \nORDER BY time ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "Avg Time to Merge (30-Day Trend)",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "queryText": "-- Time to First Response\nSELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (First Response)' as metric, \n  AVG(time_to_first_response) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics WHERE repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') AND time_to_first_response > 0\n\nUNION ALL\n\n-- Time to Close External Issues\nSELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (Resolution Time)' as metric, \n  AVG(time_to_close_issue_external) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics WHERE repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging') AND time_to_close_issue_external > 0\nORDER BY time ASC",
+          "queryType": "table",
+          "rawQueryText": "-- Time to First Response\nSELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (First Response)' as metric, \n  AVG(time_to_first_response) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics WHERE repo IN (${repo:singlequote}) AND time_to_first_response > 0\n\nUNION ALL\n\n-- Time to Close External Issues\nSELECT \n  CAST(strftime('%s', date) as INTEGER) as time, \n  repo || ' (Resolution Time)' as metric, \n  AVG(time_to_close_issue_external) OVER (PARTITION BY repo ORDER BY date ROWS BETWEEN 30 PRECEDING AND CURRENT ROW) as value \nFROM daily_metrics WHERE repo IN (${repo:singlequote}) AND time_to_close_issue_external > 0\nORDER BY time ASC",
+          "refId": "A",
+          "timeColumns": ["time", "ts"]
+        }
+      ],
+      "title": "Responsiveness & Resolution",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": [
+            "agent-builder",
+            "agent-sop",
+            "docs",
+            "sdk-python",
+            "sdk-typescript",
+            "tools"
+          ],
+          "value": [
+            "agent-builder",
+            "agent-sop",
+            "docs",
+            "sdk-python",
+            "sdk-typescript",
+            "tools"
+          ]
+        },
+        "definition": "SELECT DISTINCT repo FROM daily_metrics",
+        "description": "",
+        "includeAll": true,
+        "multi": true,
+        "name": "repo",
+        "options": [],
+        "query": "SELECT DISTINCT repo FROM daily_metrics",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Strands Health",
+  "uid": "adj9pgt",
+  "version": 2
+}
