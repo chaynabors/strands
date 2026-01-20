@@ -1,7 +1,7 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use http::header::ACCEPT;
-use http::StatusCode; // Make sure 'http' is in Cargo.toml
+use http::StatusCode;
 use indicatif::ProgressBar;
 use octocrab::{models, Octocrab, OctocrabBuilder};
 use rusqlite::{params, Connection};
@@ -21,7 +21,7 @@ struct StarEntry {
 }
 
 pub struct GitHubClient<'a> {
-    gh: Octocrab,
+    pub gh: Octocrab,
     db: &'a mut Connection,
     pb: ProgressBar,
 }
@@ -513,9 +513,21 @@ impl<'a> GitHubClient<'a> {
     async fn sync_issues(&self, org: &str, repo: &str, since: DateTime<Utc>) -> Result<()> {
         self.check_limits().await?;
         let route = format!("/repos/{}/{}/issues", org, repo);
-        let mut page: octocrab::Page<Value> = self.gh.get(&route, Some(&serde_json::json!({
-            "state": "all", "sort": "updated", "direction": "desc", "since": since.to_rfc3339(), "per_page": 100
-        }))).await?;
+
+        // GitHub's /issues endpoint rejects very old "since" dates (returns 0 items).
+        // This appears to work for our use case.
+        let use_since_filter = since.year() >= 2010;
+
+        let mut page: octocrab::Page<Value> = if use_since_filter {
+            self.gh.get(&route, Some(&serde_json::json!({
+                "state": "all", "sort": "updated", "direction": "desc", "since": since.to_rfc3339(), "per_page": 100
+            }))).await?
+        } else {
+            // First sync: don't pass since parameter to avoid GitHub API bug
+            self.gh.get(&route, Some(&serde_json::json!({
+                "state": "all", "sort": "updated", "direction": "desc", "per_page": 100
+            }))).await?
+        };
 
         let mut keep_fetching = true;
         loop {
