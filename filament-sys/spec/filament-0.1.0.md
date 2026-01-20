@@ -63,7 +63,7 @@ Filament is a **WebAssembly-First** ABI. It defines a **Strict Profile** for saf
 
 #### 1.1.1 Maturity Status
 
-Filament v0.1.0 is **Alpha / Request for Comment**. The ABI layouts defined herein are **Standardized** for the v0.x lifecycle but are subject to breaking changes based on implementation feedback. While the goal is stability, early adopters MUST verify ABI compatibility using the `filament_get_info` negotiation phase.
+Filament v0.1.0 is a draft. It it not ready for production. The Host Compliance Kit is not written, validation layers are not written, SDK's are not written, and types in this document are not yet frozen.
 
 ### 1.2 Normative Status
 
