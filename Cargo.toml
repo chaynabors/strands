@@ -1,7 +1,4 @@
 [workspace]
 resolver = "3"
-members = ["strands-metrics", "strands-rs", "filament-sys", "helix"]
+members = ["strands-metrics", "strands-rs", "filament"]
 default-members = ["strands-metrics"]
-
-[workspace.dependencies]
-filament-sys = { path = "filament-sys" }

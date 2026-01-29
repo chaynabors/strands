@@ -1,6 +1,6 @@
 # Filament Specification 0.2.0
 
-**Status:** Release Candidate
+**Status:** Draft
 
 **Date:** 2026-01-26
 
@@ -44,11 +44,10 @@
 
 ### 1.1. Scope
 
-This document defines the **Filament Specification**, a standard for a deterministic, event-sourced partitioning kernel. It defines the three normative layers required for compliance with the standard:
+This document defines the **Filament Specification**, a standard for a deterministic, event-sourced partitioning kernel. It defines the two normative layers required for compliance with the standard:
 
 1.  **The Kernel Interface:** The low-level execution contract and binary interface.
-2.  **The Process Manifest:** A declarative schema defining process topology.
-3.  **The Capability Model:** The security and capability interfaces of a kernel.
+2.  **The Capability Model:** The security and capability interfaces of a kernel.
 
 ### 1.2. Status
 
@@ -95,7 +94,7 @@ A Module is a binary artifact that implements the Filament ABI. It functions as 
 Modules operate within specific **Execution Contexts** that determine their capabilities:
 
 - **Logic Contexts** rely on WebAssembly to enforce strict memory isolation and deterministic arithmetic.
-- **System Contexts** utilize native linkage to provide low-latency access to host hardware.
+- **Unmanaged Contexts** utilize native linkage to provide low-latency access to host hardware.
 
 ### 2.5 Deployment Topologies
 
@@ -104,13 +103,31 @@ The architecture supports two distinct host mappings:
 - **Hosted Topology:** The Kernel executes as a standard process within a Host OS. The Kernel schedules Modules internally, effectively functioning as a green-thread scheduler. This is used for simulation and high-density cloud workloads.
 - **Native Topology:** The Kernel executes directly on the hardware metal. The Kernel manages physical interrupts and CPU cycles directly. This is used for real-time safety controllers where jitter from a Host OS is unacceptable.
 
+### 2.6 Documentation Conventions
+
+Throughout the specification **Compliance Tables** are used to define normative constraints.
+
+- **Common Requirements:** Constraints that both the **Kernel** and the **Module** must honor. Violation of common requirements is the same as violating either module or kernel requirements respectively.
+- **Kernel Requirements:** Constraints the **Kernel** must honor. Violating these renders the Kernel Non-Compliant.
+- **Module Requirements:** Constraints the **Module** must honor. Violation of module requirements results in the following behaviour:
+  - If the violation is detected by the kernel at load time, the kernel will refuse to load the module.
+  - If the violation is detected by the kernel at runtime, the kernel may terminate the weave with an error code.
+  - Managed module violations that are not captured by the kernel may result in undefined behaviour in the context of a module.
+  - Unmanaged module violations cannot be captured by the kernel and result in undefined behaviour in the context of the kernel.
+
+In future versions:
+
+- Existing IDs **SHALL NOT** be renumbered.
+- Deleted requirements **SHALL** leave a gap in the sequence.
+- New requirements **SHALL** be appended to the end of the list.
+
 ---
 
 ## 3. Execution Contexts
 
-Because Filament supports diverse execution environments, the specification defines **Execution Contexts** to manage this disversity safely. These contexts determine the loader type, the available capabilities, and the preemption guarantees enforced by the Kernel.
+Because Filament supports diverse execution environments, the specification defines **Execution Contexts** to manage this diversity safely. These contexts determine the loader type, the available capabilities, and the preemption guarantees enforced by the Kernel.
 
-### 3.1 System Context
+### 3.1 Unmanaged Context
 
 This context is designed for hardware abstraction, high-frequency sensor ingestion, and actuator control.
 
@@ -147,7 +164,7 @@ This context is designed for **Pure Computation**: business logic, control algor
 
 | ID           | Requirement                                                                                              |
 | :----------- | :------------------------------------------------------------------------------------------------------- |
-| **IR-3.4.1** | The Kernel **MUST** configure the execution engine for WASM modules to enforce **NaN Canonicalization**. |
+| **KR-3.4.1** | The Kernel **MUST** configure the execution engine for WASM modules to enforce **NaN Canonicalization**. |
 
 ## 4. The Kernel Model
 
@@ -209,7 +226,7 @@ The **Staging Area** is the transient medium for inter-module communication. It 
 
 For high-bandwidth assets, such as Lidar point clouds or Video frames, the Kernel uses **Blob Mapping** to avoid copy overhead.
 
-- **Creation:** System contexts allocate Blobs via `filament_blob_alloc`. This may return a pointer to DMA-safe memory.
+- **Creation:** Unmanaged contexts allocate Blobs via `filament_blob_alloc`. This may return a pointer to DMA-safe memory.
 - **Ephemerality:** Blobs created during a Weave are destroyed at the end of that Weave unless they are explicitly referenced in the committed Timeline or retained.
 - **Retention:** Stateful modules wishing to preserve a Blob across Weaves without publishing it **MUST** call `filament_blob_retain`.
 - **Safety Trap:** Accessing a Blob ID that was not retained or committed in a previous Weave **MUST** trigger a Kernel Trap.
@@ -218,84 +235,33 @@ For high-bandwidth assets, such as Lidar point clouds or Video frames, the Kerne
 
 # Part II: The Kernel Interface
 
-## 1. System Conventions
+## 1. Type Aliases
 
-### 1.1 Binary Format
-
-- **Byte Order:** All multi-byte integers **MUST** be encoded using **Little-Endian**.
-- **Alignment:** All ABI structures **MUST** be aligned to 8-byte boundaries.
-- **Pointers:** Defined as **`FilamentAddress`**, an alias for `u64`.
-  - **Guest Pointers:** In Wasm, these are zero-extended offsets relative to linear memory 0. In Native, these are 64-bit virtual addresses within the module space.
-  - **Handles:** Opaque handles are typed as `u64` and are **NOT** dereferenceable by the module.
-
-### 1.2 Calling Convention
-
-- **Interface:** All exported and imported functions **MUST** adhere to the standard **C Calling Convention** of the target architecture.
-- **Signature:** All functions accept exactly two parameters: `ctx` (`u64`) and `args_ptr` (`FilamentAddress`).
-- **Thread Safety:** Kernel Interface functions differ in their concurrency guarantees:
-  - **Context Handles (`ctx`):** These are **Thread-Local** and **MUST NOT** be shared or used concurrently by multiple threads.
-  - **Channel Operations:** Functions operating on dynamic channels (`filament_read`, `filament_write`) are **Thread-Safe**. The Kernel **MUST** synchronize access to the underlying Ring Buffers, allowing concurrent reads and writes from different Execution Contexts.
-
-### 1.3 Documentation Conventions
-
-Function definitions use **Compliance Tables** to define normative constraints.
-
-- **Valid Usage (VU):** Constraints the **Caller** must honor. Violating these results in Undefined Behavior or Kernel Traps.
-- **Implementation Requirements (IR):** Behaviors the **Kernel** must implement. Violating these renders the Kernel Non-Compliant.
-
-In future versions:
-
-- Existing IDs **SHALL NOT** be renumbered.
-- Deleted requirements **SHALL** leave a gap in the sequence.
-- New requirements **SHALL** be appended to the end of the list.
-
-### 1.4 URI Handling
-
-URI's are not normalized by the Kernel in Filament.
-
-**Valid Usage:**
-
-| ID           | Requirement                                                                                                        |
-| :----------- | :----------------------------------------------------------------------------------------------------------------- |
-| **VU-1.4.1** | The Caller **SHOULD** ensure all URIs passed to the Kernel are pre-normalized to **IETF RFC 3986** canonical form. |
-
-**Implementation Requirements:**
-
-| ID           | Requirement                                                                                                                                                                 |
-| :----------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-1.4.1** | The Kernel **MUST** perform a byte-wise comparison when matching URIs.                                                                                                      |
-| **IR-1.4.2** | The Kernel **MUST** reject URIs containing embedded null characters (`\0`) or non-printable ASCII control characters with `FILAMENT_ERR_INVALID`.                           |
-| **IR-1.4.3** | When matching module input/output topologies (linking), the Kernel **MUST** require exact binary equality between the Producer's declared Topic and the Consumer's Binding. |
-
-### 1.5 Data Format Guidelines
-
-To ensure ecosystem interoperability, Host Runtimes responsible for parsing user configuration and invoking `filament_process_spawn` **SHOULD** adhere to the following data format guidelines:
-
-1.  **Recommended Format:** Hosts **SHOULD** support **TOML v1.0** as the primary format for Process Manifests. Its strict typing, simple parsing rules, and deterministic parsing semantics align with Filament's safety and portability goals.
-2.  **Discouraged Format:** Hosts **SHOULD NOT** use YAML for normative configuration due to its ambiguity, unsafe type inference, parsing overhead, and parser size.
-3.  **Alternative Formats:** Hosts **MAY** support other deterministic formats as implementation details, provided that they can be losslessly mapped to the `FilamentProcessSpawnArgs` ABI structure.
-
-### 1.6 WebAssembly Import Namespace
-
-To ensure portability across different Host Runtimes, WebAssembly modules **MUST** import all Kernel Interface functions from the module namespace `filament`.
+| Alias                   | Fundamental | Description                                                       |
+| :---------------------- | :---------- | :---------------------------------------------------------------- |
+| `FilamentAddress`       | `u64`       | Pointer in unmanaged modules or linear offset in managed modules. |
+| `FilamentContextHandle` | `u64`       | Opaque handle to the current execution context.                   |
+| `FilamentBlobHandle`    | `u64`       | Opaque handle to a kernel-managed Blob.                           |
+| `FilamentCursorHandle`  | `u64`       | Opaque handle to a timeline cursor.                               |
+| `FilamentProcessHandle` | `u64`       | Opaque handle to a process                                        |
 
 ## 2. Constants and Enumerations
 
 ### 2.1 Orphan Constants
 
-| Value        | Symbol           | Description             |
-| :----------- | :--------------- | :---------------------- |
-| `0`          | `FILAMENT_NULL`  | Null pointer or handle. |
-| `0x9D2F8A41` | `FILAMENT_MAGIC` | Filament module magic.  |
+| Symbol           | Type  | Value        | Description             |
+| :--------------- | :---- | :----------- | :---------------------- |
+| `FILAMENT_NULL`  | `u64` | `0`          | Null pointer or handle. |
+| `FILAMENT_MAGIC` | `u32` | `0x9D2F8A41` | Filament module magic.  |
 
 ### 2.2 System Limits
 
-| Value    | Symbol                    | Description                                       |
-| :------- | :------------------------ | :------------------------------------------------ |
-| `64`     | `FILAMENT_MAX_RECURSION`  | Max depth for nested generic value structures.    |
-| `2048`   | `FILAMENT_MAX_URI_LEN`    | Max length for URI strings.                       |
-| `128`    | `FILAMENT_MIN_BLOB_BYTES` | Threshold size before kernel prefers indirection. |
-| `65,536` | `FILAMENT_MIN_BUS_BYTES`  | Minimum staging area size.                        |
+| Symbol                    | Type  | Value   | Description                                       |
+| :------------------------ | :---- | :------ | :------------------------------------------------ |
+| `FILAMENT_MAX_RECURSION`  | `u32` | `64`    | Max depth for nested generic value structures.    |
+| `FILAMENT_MAX_URI_LEN`    | `u32` | `2048`  | Max length for URI strings.                       |
+| `FILAMENT_MIN_BLOB_BYTES` | `u64` | `128`   | Threshold size before kernel prefers indirection. |
+| `FILAMENT_MIN_BUS_BYTES`  | `u64` | `65536` | Minimum staging area size.                        |
 
 ### 2.3 Success Codes (`i64`)
 
@@ -306,83 +272,84 @@ To ensure portability across different Host Runtimes, WebAssembly modules **MUST
 
 ### 2.3 Error Codes (`i64`)
 
-| Value | Symbol                   | Description                |
-| :---- | :----------------------- | :------------------------- |
-| `-1`  | `FILAMENT_ERR_PERM`      | Permission denied.         |
-| `-2`  | `FILAMENT_ERR_NOT_FOUND` | Resource not found.        |
-| `-3`  | `FILAMENT_ERR_IO`        | Physical I/O failure.      |
-| `-4`  | `FILAMENT_ERR_OOM`       | Out of memory.             |
-| `-5`  | `FILAMENT_ERR_INVALID`   | Invalid argument.          |
-| `-6`  | `FILAMENT_ERR_TIMEOUT`   | Execution budget exceeded. |
-| `-7`  | `FILAMENT_ERR_TYPE`      | Schema or type mismatch.   |
+| Symbol                   | Value | Description                |
+| :----------------------- | :---- | :------------------------- |
+| `FILAMENT_ERR_UNKNOWN`   | `-1`  | Unknown error.             |
+| `FILAMENT_ERR_PERM`      | `-2`  | Permission denied.         |
+| `FILAMENT_ERR_NOT_FOUND` | `-3`  | Resource not found.        |
+| `FILAMENT_ERR_IO`        | `-4`  | Physical I/O failure.      |
+| `FILAMENT_ERR_OOM`       | `-5`  | Out of memory.             |
+| `FILAMENT_ERR_INVALID`   | `-6`  | Invalid argument.          |
+| `FILAMENT_ERR_TIMEOUT`   | `-7`  | Execution budget exceeded. |
+| `FILAMENT_ERR_TYPE`      | `-8`  | Schema or type mismatch.   |
 
 ### 2.4 Value Types (`u32`)
 
-| ID  | Symbol               | Description              |
-| :-- | :------------------- | :----------------------- |
-| `0` | `FILAMENT_VAL_UNIT`  | None.                    |
-| `1` | `FILAMENT_VAL_BOOL`  | Boolean.                 |
-| `2` | `FILAMENT_VAL_I64`   | Signed 64-bit integer.   |
-| `3` | `FILAMENT_VAL_U64`   | Unsigned 64-bit integer. |
-| `4` | `FILAMENT_VAL_F64`   | Double precision float.  |
-| `5` | `FILAMENT_VAL_STR`   | UTF-8 string view.       |
-| `6` | `FILAMENT_VAL_BLOB`  | Blob reference.          |
-| `7` | `FILAMENT_VAL_MAP`   | Key-value array.         |
-| `8` | `FILAMENT_VAL_LIST`  | Value array.             |
-| `9` | `FILAMENT_VAL_BYTES` | Opaque byte array.       |
+| Symbol               | ID  | Description              |
+| :------------------- | :-- | :----------------------- |
+| `FILAMENT_VAL_UNIT`  | `0` | None.                    |
+| `FILAMENT_VAL_BOOL`  | `1` | Boolean.                 |
+| `FILAMENT_VAL_I64`   | `2` | Signed 64-bit integer.   |
+| `FILAMENT_VAL_U64`   | `3` | Unsigned 64-bit integer. |
+| `FILAMENT_VAL_F64`   | `4` | Double precision float.  |
+| `FILAMENT_VAL_STR`   | `5` | UTF-8 string view.       |
+| `FILAMENT_VAL_BLOB`  | `6` | Blob reference.          |
+| `FILAMENT_VAL_MAP`   | `7` | Key-value array.         |
+| `FILAMENT_VAL_LIST`  | `8` | Value array.             |
+| `FILAMENT_VAL_BYTES` | `9` | Opaque byte array.       |
 
 ### 2.5 I/O Flags (`u32`)
 
-| Bit | Symbol                     | Description                                                                                |
-| :-- | :------------------------- | :----------------------------------------------------------------------------------------- |
-| `0` | `FILAMENT_IO_RAW`          | Payload is raw bytes.                                                                      |
-| `1` | `FILAMENT_IO_VAL`          | Payload is `FilamentValue`.                                                                |
-| `2` | `FILAMENT_IO_DMA`          | Request direct memory access.                                                              |
-| `3` | `FILAMENT_IO_DMA_OPTIONAL` | Request direct memory access if available; otherwise, fall back to indirect memory access. |
+| Symbol                     | Bit | Description                                                                                |
+| :------------------------- | :-- | :----------------------------------------------------------------------------------------- |
+| `FILAMENT_IO_RAW`          | `0` | Payload is raw bytes.                                                                      |
+| `FILAMENT_IO_VAL`          | `1` | Payload is `FilamentValue`.                                                                |
+| `FILAMENT_IO_DMA`          | `2` | Request direct memory access.                                                              |
+| `FILAMENT_IO_DMA_OPTIONAL` | `3` | Request direct memory access if available; otherwise, fall back to indirect memory access. |
 
 ### 2.6 Data Formats (`u32`)
 
-| ID  | Symbol                | Description         |
-| :-- | :-------------------- | :------------------ |
-| `0` | `FILAMENT_FMT_BINARY` | Opaque binary data. |
-| `1` | `FILAMENT_FMT_JSON`   | UTF-8 JSON.         |
-| `2` | `FILAMENT_FMT_PROTO`  | Protocol Buffers.   |
-| `3` | `FILAMENT_FMT_TEXT`   | UTF-8 Text.         |
+| Symbol                | ID  | Description         |
+| :-------------------- | :-- | :------------------ |
+| `FILAMENT_FMT_BINARY` | `0` | Opaque binary data. |
+| `FILAMENT_FMT_JSON`   | `1` | UTF-8 JSON.         |
+| `FILAMENT_FMT_PROTO`  | `2` | Protocol Buffers.   |
+| `FILAMENT_FMT_TEXT`   | `3` | UTF-8 Text.         |
 
 ### 2.7 Scheduling Policies (`u8`)
 
-| Value | Symbol                     | Description                                                                                                                     |
-| :---- | :------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| `0`   | `FILAMENT_SCHED_SHARED`    | Scheduled on the main thread pool. The process participates in a global weave barrier.                                          |
-| `1`   | `FILAMENT_SCHED_DEDICATED` | Mapped to a dedicated core. The process executes on an independent timeline and is **not** blocked by the global weave barrier. |
+| Symbol                     | Value | Description                                                                                                                     |
+| :------------------------- | :---- | :------------------------------------------------------------------------------------------------------------------------------ |
+| `FILAMENT_SCHED_SHARED`    | `0`   | Scheduled on the main thread pool. The process participates in a global weave barrier.                                          |
+| `FILAMENT_SCHED_DEDICATED` | `1`   | Mapped to a dedicated core. The process executes on an independent timeline and is **not** blocked by the global weave barrier. |
 
 ### 2.8 Execution Contexts (`u8`)
 
-| Value | Symbol                     | Description                                                                                     |
-| :---- | :------------------------- | :---------------------------------------------------------------------------------------------- |
-| `0`   | `FILAMENT_CONTEXT_LOGIC`   | No I/O allowed except via the Bus. Deterministic arithmetic is enforced via WASM.               |
-| `1`   | `FILAMENT_CONTEXT_SYSTEM`  | Access to system hardware is allowed. Real-time scheduling constraints apply.                   |
-| `2`   | `FILAMENT_CONTEXT_MANAGED` | Access to system resources is allowed, including network access. **MAY** use a managed runtime. |
+| Symbol                       | Value | Description                                                                                     |
+| :--------------------------- | :---- | :---------------------------------------------------------------------------------------------- |
+| `FILAMENT_CONTEXT_LOGIC`     | `0`   | No I/O allowed except via the Bus. Deterministic arithmetic is enforced via WASM.               |
+| `FILAMENT_CONTEXT_MANAGED`   | `1`   | Access to system resources is allowed, including network access. **MAY** use a managed runtime. |
+| `FILAMENT_CONTEXT_UNMANAGED` | `2`   | Access to system hardware is allowed. Real-time scheduling constraints apply.                   |
 
 ### 2.9 Wake Flags (`u32`)
 
 Bitmask indicating why the module was scheduled.
 
-| Bit | Symbol                    | Description                                         |
-| :-- | :------------------------ | :-------------------------------------------------- |
-| `0` | `FILAMENT_WAKE_INIT`      | First execution.                                    |
-| `1` | `FILAMENT_WAKE_IO`        | Data is available on a subscribed Topic or Channel. |
-| `2` | `FILAMENT_WAKE_TIMER`     | A requested timer has expired.                      |
-| `3` | `FILAMENT_WAKE_YIELD`     | Resuming from a voluntary `FILAMENT_YIELD`.         |
-| `4` | `FILAMENT_WAKE_LIFECYCLE` | A lifecycle event is pending.                       |
+| Symbol                    | Bit | Description                                         |
+| :------------------------ | :-- | :-------------------------------------------------- |
+| `FILAMENT_WAKE_INIT`      | `0` | First execution.                                    |
+| `FILAMENT_WAKE_IO`        | `1` | Data is available on a subscribed Topic or Channel. |
+| `FILAMENT_WAKE_TIMER`     | `2` | A requested timer has expired.                      |
+| `FILAMENT_WAKE_YIELD`     | `3` | Resuming from a voluntary `FILAMENT_YIELD`.         |
+| `FILAMENT_WAKE_LIFECYCLE` | `4` | A lifecycle event is pending.                       |
 
 ### 2.10 Memory Map Flags (`u32`)
 
-| Bit | Symbol                | Description                                |
-| :-- | :-------------------- | :----------------------------------------- |
-| `0` | `FILAMENT_MMAP_READ`  | Request read access to the memory region.  |
-| `1` | `FILAMENT_MMAP_WRITE` | Request write access to the memory region. |
-| `2` | `FILAMENT_MMAP_EXEC`  | Request execute access.                    |
+| Symbol                | Bit | Description                                |
+| :-------------------- | :-- | :----------------------------------------- |
+| `FILAMENT_MMAP_READ`  | `0` | Request read access to the memory region.  |
+| `FILAMENT_MMAP_WRITE` | `1` | Request write access to the memory region. |
+| `FILAMENT_MMAP_EXEC`  | `2` | Request execute access.                    |
 
 ## 3. Data Structures
 
@@ -403,11 +370,11 @@ A non-owning view into a UTF-8 string buffer.
 
 A handle to a kernel-managed memory buffer.
 
-| Offset | Field     | Type              | Description               |
-| :----- | :-------- | :---------------- | :------------------------ |
-| 0      | `blob_id` | `u64`             | Opaque handle.            |
-| 8      | `ptr`     | `FilamentAddress` | Address in module memory. |
-| 16     | `size`    | `u64`             | Total size in bytes.      |
+| Offset | Field    | Type                 | Description               |
+| :----- | :------- | :------------------- | :------------------------ |
+| 0      | `handle` | `FilamentBlobHandle` | Opaque handle.            |
+| 8      | `ptr`    | `FilamentAddress`    | Address in module memory. |
+| 16     | `size`   | `u64`                | Total size in bytes.      |
 
 ### 3.3 FilamentArray
 
@@ -437,27 +404,27 @@ A key-value pair used in maps.
 
 Generic tagged union container. All fields in the `data` union start at Offset 8.
 
-| Offset | Field        | Type             | Description                              |
-| :----- | :----------- | :--------------- | :--------------------------------------- |
-| 0      | `type`       | `u32`            | Type enum ID.                            |
-| 4      | `flags`      | `u32`            | Metadata flags.                          |
-| 8      | `data.u64`   | `u64`            | Unsigned 64-bit integer.                 |
-| 8      | `data.i64`   | `i64`            | Signed 64-bit integer.                   |
-| 8      | `data.f64`   | `f64`            | Double precision float.                  |
-| 8      | `data.bool`  | `u8`             | Boolean (0=False, 1=True).               |
-| 8      | `data.str`   | `FilamentString` | String view (16 bytes).                  |
-| 8      | `data.blob`  | `FilamentBlob`   | Blob reference (24 bytes).               |
-| 8      | `data.map`   | `FilamentArray`  | Pointer to `FilamentPair[]` (16 bytes).  |
-| 8      | `data.list`  | `FilamentArray`  | Pointer to `FilamentValue[]` (16 bytes). |
-| 8      | `data.bytes` | `FilamentArray`  | Pointer to byte array (16 bytes).        |
+| Offset | Field           | Type             | Description                              |
+| :----- | :-------------- | :--------------- | :--------------------------------------- |
+| 0      | `tag`           | `u32`            | Type enum ID.                            |
+| 4      | `flags`         | `u32`            | Metadata flags.                          |
+| 8      | `data.as_u64`   | `u64`            | Unsigned 64-bit integer.                 |
+| 8      | `data.as_i64`   | `i64`            | Signed 64-bit integer.                   |
+| 8      | `data.as_f64`   | `f64`            | Double precision float.                  |
+| 8      | `data.as_bool`  | `u8`             | Boolean (0=False, 1=True).               |
+| 8      | `data.as_str`   | `FilamentString` | String view (16 bytes).                  |
+| 8      | `data.as_blob`  | `FilamentBlob`   | Blob reference (24 bytes).               |
+| 8      | `data.as_map`   | `FilamentArray`  | Pointer to `FilamentPair[]` (16 bytes).  |
+| 8      | `data.as_list`  | `FilamentArray`  | Pointer to `FilamentValue[]` (16 bytes). |
+| 8      | `data.as_bytes` | `FilamentArray`  | Pointer to byte array (16 bytes).        |
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
-| ID           | Requirement                                                                                                           |
-| :----------- | :-------------------------------------------------------------------------------------------------------------------- |
-| **IR-3.5.1** | When reading a `FilamentValue`, the Kernel **MUST** validate the `data` union member corresponding to the `type` tag. |
-| **IR-3.5.2** | If type is `FILAMENT_VAL_STR`, the Kernel **MUST** validate that the data is valid UTF-8.                             |
-| **IR-3.5.3** | The Kernel **MUST** limit recursion depth when validating nested structures to `FILAMENT_MAX_RECURSION`.              |
+| ID           | Requirement                                                                                                            |
+| :----------- | :--------------------------------------------------------------------------------------------------------------------- |
+| **KR-3.5.1** | When reading a `FilamentValue`, the Kernel **MUST** validate the `data` union member corresponding to the `tag` field. |
+| **KR-3.5.2** | If `tag` is `FILAMENT_VAL_STR`, the Kernel **MUST** validate that the data is valid UTF-8.                             |
+| **KR-3.5.3** | The Kernel **MUST** limit recursion depth when validating nested structures to `FILAMENT_MAX_RECURSION`.               |
 
 ### 3.6 FilamentTraceContext
 
@@ -558,7 +525,7 @@ Embedded definition for channel creation.
 | 0      | `schema`    | `FilamentString` | Schema URI.                          |
 | 16     | `capacity`  | `u64`            | Ring buffer size in event count.     |
 | 24     | `msg_size`  | `u64`            | Max size of event envelope in bytes. |
-| 36     | `root_type` | `u32`            | `FilamentValueType` of the channel.  |
+| 36     | `root_tag`  | `u32`            | `FilamentValueType` of the channel.  |
 | 32     | `direction` | `u32`            | 1=Inbound, 2=Outbound.               |
 
 ### 3.13 FilamentModuleDefinition
@@ -582,12 +549,12 @@ Defines a single executable unit within the Process Pipeline.
 
 Payload for the `filament/process/status` event.
 
-| Offset | Field   | Type  | Description                               |
-| :----- | :------ | :---- | :---------------------------------------- |
-| 0      | `pid`   | `u64` | Process ID.                               |
-| 8      | `code`  | `i64` | Exit code or error ID.                    |
-| 16     | `state` | `u32` | 0=Started, 1=Exited, 2=Killed, 3=Crashed. |
-| 20     | `_pad`  | `u32` | Reserved.                                 |
+| Offset | Field    | Type                    | Description                               |
+| :----- | :------- | :---------------------- | :---------------------------------------- |
+| 0      | `handle` | `FilamentProcessHandle` | Opaque handle to the process              |
+| 8      | `code`   | `i64`                   | Exit code or error ID.                    |
+| 16     | `state`  | `u32`                   | 0=Started, 1=Exited, 2=Killed, 3=Crashed. |
+| 20     | `_pad`   | `u32`                   | Reserved.                                 |
 
 ### 3.15 FilamentProcessLifecycleEvent
 
@@ -607,12 +574,12 @@ Payload for the `filament/process/lifecycle` protocol.
 
 Arguments for `filament_read`.
 
-| Offset | Field     | Type              | Description                     |
-| :----- | :-------- | :---------------- | :------------------------------ |
-| 0      | `topic`   | `FilamentString`  | Filter topic URI.               |
-| 16     | `start`   | `u64`             | Sequence ID or cursor.          |
-| 24     | `out_ptr` | `FilamentAddress` | Destination buffer pointer.     |
-| 32     | `out_cap` | `u64`             | Capacity of destination buffer. |
+| Offset | Field     | Type              | Description                                                 |
+| :----- | :-------- | :---------------- | :---------------------------------------------------------- |
+| 0      | `topic`   | `FilamentString`  | Filter topic URI.                                           |
+| 16     | `start`   | `u64`             | The sequential index of the event within the current batch. |
+| 24     | `out_ptr` | `FilamentAddress` | Destination buffer pointer.                                 |
+| 32     | `out_cap` | `u64`             | Capacity of destination buffer.                             |
 
 ### 3.17 FilamentWriteArgs
 
@@ -647,12 +614,12 @@ Arguments for `filament_blob_alloc`.
 
 Arguments for `filament_blob_map`.
 
-| Offset | Field     | Type              | Description                               |
-| :----- | :-------- | :---------------- | :---------------------------------------- |
-| 0      | `out_ref` | `FilamentAddress` | Pointer to `FilamentBlob` struct to fill. |
-| 8      | `id`      | `u64`             | The blob ID to map.                       |
-| 16     | `flags`   | `u32`             | Bitmask of `FilamentMapFlags`.            |
-| 20     | `_pad`    | `u32`             | Reserved.                                 |
+| Offset | Field     | Type                 | Description                               |
+| :----- | :-------- | :------------------- | :---------------------------------------- |
+| 0      | `out_ref` | `FilamentAddress`    | Pointer to `FilamentBlob` struct to fill. |
+| 8      | `handle`  | `FilamentBlobHandle` | The blob to map.                          |
+| 16     | `flags`   | `u32`                | Bitmask of `FilamentMapFlags`.            |
+| 20     | `_pad`    | `u32`                | Reserved.                                 |
 
 ### 3.20 FilamentBlobRetainArgs
 
@@ -660,13 +627,13 @@ Arguments for `filament_blob_map`.
 
 Arguments for `filament_blob_retain`.
 
-| Offset | Field | Type  | Description            |
-| :----- | :---- | :---- | :--------------------- |
-| 0      | `id`  | `u64` | The blob ID to retain. |
+| Offset | Field    | Type                 | Description         |
+| :----- | :------- | :------------------- | :------------------ |
+| 0      | `handle` | `FilamentBlobHandle` | The blob to retain. |
 
 ### 3.21 FilamentChannelCreateArgs
 
-**Size:** 48 bytes
+**Size:** 56 bytes
 
 Arguments for `filament_channel_create`.
 
@@ -695,9 +662,9 @@ Arguments for `filament_process_spawn`.
 
 Arguments for `filament_process_terminate`.
 
-| Offset | Field | Type  | Description              |
-| :----- | :---- | :---- | :----------------------- |
-| 0      | `pid` | `u64` | Process ID to terminate. |
+| Offset | Field    | Type                    | Description                                |
+| :----- | :------- | :---------------------- | :----------------------------------------- |
+| 0      | `handle` | `FilamentProcessHandle` | Opaque handle to the process to terminate. |
 
 ### 3.24 FilamentTimelineOpenArgs
 
@@ -720,11 +687,11 @@ Arguments for `filament_tl_open`.
 
 Arguments for `filament_tl_next`.
 
-| Offset | Field     | Type              | Description                 |
-| :----- | :-------- | :---------------- | :-------------------------- |
-| 0      | `handle`  | `u64`             | Cursor handle ID.           |
-| 8      | `out_ptr` | `FilamentAddress` | Destination buffer pointer. |
-| 16     | `buf_cap` | `u64`             | Buffer capacity.            |
+| Offset | Field     | Type                   | Description                 |
+| :----- | :-------- | :--------------------- | :-------------------------- |
+| 0      | `handle`  | `FilamentCursorHandle` | Cursor handle.              |
+| 8      | `out_ptr` | `FilamentAddress`      | Destination buffer pointer. |
+| 16     | `buf_cap` | `u64`                  | Buffer capacity.            |
 
 ### 3.26 FilamentTimelineCloseArgs
 
@@ -732,9 +699,9 @@ Arguments for `filament_tl_next`.
 
 Arguments for `filament_tl_close`.
 
-| Offset | Field    | Type  | Description       |
-| :----- | :------- | :---- | :---------------- |
-| 0      | `handle` | `u64` | Cursor handle ID. |
+| Offset | Field    | Type                   | Description    |
+| :----- | :------- | :--------------------- | :------------- |
+| 0      | `handle` | `FilamentCursorHandle` | Cursor handle. |
 
 ### 3.27 FilamentInitArgs
 
@@ -755,21 +722,20 @@ Arguments for `filament_init`.
 Arguments for `filament_weave`.
 
 | Offset | Field        | Type                   | Description                                          |
-| :----- | :----------- | :--------------------- | :--------------------------------------------------- |
-| 0      | `ctx`        | `u64`                  | Opaque host handle.                                  |
-| 8      | `time_limit` | `u64`                  | Execution budget in nanoseconds.                     |
-| 16     | `res_used`   | `u64`                  | Compute units consumed.                              |
-| 24     | `res_max`    | `u64`                  | Compute unit limit.                                  |
-| 32     | `mem_max`    | `u64`                  | Hard memory limit.                                   |
-| 40     | `rand_seed`  | `u64`                  | Cryptographic seed.                                  |
-| 48     | `virt_time`  | `u64`                  | Virtual simulated time.                              |
-| 56     | `trace`      | `FilamentTraceContext` | Trace context (32 bytes).                            |
-| 88     | `delta_ns`   | `u64`                  | Time since last tick.                                |
-| 96     | `tick`       | `u64`                  | Monotonic tick count.                                |
-| 104    | `wake_flags` | `u32`                  | Bitmask of `FilamentWakeFlags`.                      |
-| 108    | `_pad`       | `u32`                  | Reserved.                                            |
-| 112    | `user_data`  | `u64`                  | Opaque value preserved from the previous Yield/Park. |
-| 120    | `_pad2`      | `u64`                  | Reserved.                                            |
+| :----- | :----------- | :--------------------- | ---------------------------------------------------- |
+| 0      | `time_limit` | `u64`                  | Execution budget in nanoseconds.                     |
+| 8      | `res_used`   | `u64`                  | Compute units consumed.                              |
+| 16     | `res_max`    | `u64`                  | Compute unit limit.                                  |
+| 24     | `mem_max`    | `u64`                  | Hard memory limit.                                   |
+| 32     | `rand_seed`  | `u64`                  | Cryptographic seed.                                  |
+| 40     | `virt_time`  | `u64`                  | Virtual simulated time.                              |
+| 48     | `trace`      | `FilamentTraceContext` | Trace context (32 bytes).                            |
+| 80     | `delta_ns`   | `u64`                  | Time since last tick.                                |
+| 88     | `tick`       | `u64`                  | Monotonic tick count.                                |
+| 96     | `wake_flags` | `u32`                  | Bitmask of `FilamentWakeFlags`.                      |
+| 100    | `_pad`       | `u32`                  | Reserved.                                            |
+| 104    | `user_data`  | `u64`                  | Opaque value preserved from the previous Yield/Park. |
+| 112    | `_pad2`      | `[u8; 16]`             | Reserved.                                            |
 
 ### 3.29 FilamentLogRecord
 
@@ -801,225 +767,291 @@ Payload for the `filament/core/panic` event.
 
 Reads events from an input source.
 
-**Args:** `FilamentReadArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentReadArgs`.          |
+
 **Return:** `i64` - Total bytes written or error code.
 
-**Valid Usage:**
-
-| ID           | Constraint                                                                                                                                                  |
-| :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **VU-4.1.1** | `args->out_ptr` **MUST** point to a valid buffer of at least `args->out_cap` bytes in the module's memory space, unless `args->out_ptr` is `FILAMENT_NULL`. |
-| **VU-4.1.2** | If `args->topic` is provided, it **MUST** be a valid UTF-8 string.                                                                                          |
-
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                                                                          |
 | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-4.1.1** | If `args->topic` matches a verified dynamic channel URI, the Kernel **MUST** destructively read the oldest available event from the ring buffer. The `args->start` field **MUST** be ignored.                                        |
-| **IR-4.1.2** | If `args->topic` is a static manifest topic or `FILAMENT_NULL`, the Kernel **MUST** read sequentially from the staging area using `args->start` as the cursor.                                                                       |
-| **IR-4.1.3** | If `args->out_ptr` is `FILAMENT_NULL`, the Kernel **MUST** return the required size in bytes without performing a write.                                                                                                             |
-| **IR-4.1.4** | The Kernel **MUST NOT** copy partial events. If `args->out_cap` is insufficient for the next complete event, the Kernel **MUST** stop writing and return the current total bytes (or `FILAMENT_ERR_OOM` if zero bytes were written). |
-| **IR-4.1.5** | If the event contains `FILAMENT_VAL_BLOB` types, the Kernel **MUST** copy the event structure and handle into `args->out_ptr` but **MUST NOT** copy the backing blob data.                                                           |
-| **IR-4.1.6** | The Kernel **MUST** ensure that all pointers (e.g., in `FilamentString`, `FilamentArray`) within the returned events point to valid offsets within the destination buffer (Pointer Relocation).                                      |
+| **KR-4.1.1** | If `args->topic` matches a verified dynamic channel URI, the Kernel **MUST** destructively read the oldest available event from the ring buffer. The `args->start` field **MUST** be ignored.                                        |
+| **KR-4.1.2** | If `args->topic` is a static manifest topic or `FILAMENT_NULL`, the Kernel **MUST** read sequentially from the staging area using `args->start` as the cursor.                                                                       |
+| **KR-4.1.3** | If `args->out_ptr` is `FILAMENT_NULL`, the Kernel **MUST** return the required size in bytes without performing a write.                                                                                                             |
+| **KR-4.1.4** | The Kernel **MUST NOT** copy partial events. If `args->out_cap` is insufficient for the next complete event, the Kernel **MUST** stop writing and return the current total bytes (or `FILAMENT_ERR_OOM` if zero bytes were written). |
+| **KR-4.1.5** | If the event contains `FILAMENT_VAL_BLOB` types, the Kernel **MUST** copy the event structure and handle into `args->out_ptr` but **MUST NOT** copy the backing blob data.                                                           |
+| **KR-4.1.6** | The Kernel **MUST** ensure that all pointers (e.g., in `FilamentString`, `FilamentArray`) within the returned events point to valid offsets within the destination buffer (Pointer Relocation).                                      |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                                                                  |
+| :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MR-4.1.1** | `args->out_ptr` **MUST** point to a valid buffer of at least `args->out_cap` bytes in the module's memory space, unless `args->out_ptr` is `FILAMENT_NULL`. |
+| **MR-4.1.2** | If `args->topic` is provided, it **MUST** be a valid UTF-8 string.                                                                                          |
 
 ### 4.2 filament_write
 
 Writes an event to an output destination.
 
-**Args:** `FilamentWriteArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentWriteArgs`.         |
+
 **Return:** `i64` - Bytes written or error code.
 
-**Valid Usage:**
-
-| ID           | Constraint                                                                                                     |
-| :----------- | :------------------------------------------------------------------------------------------------------------- |
-| **VU-4.2.1** | `args->topic` **MUST** be a valid UTF-8 string.                                                                |
-| **VU-4.2.2** | If `args->flags` contains `FILAMENT_IO_VAL`, `args->data` **MUST** point to a valid `FilamentValue` structure. |
-
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                                 |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **IR-4.2.1** | If `args->flags` contains `FILAMENT_IO_VAL`, the Kernel **MUST** recursively validate and serialize the payload structure against the schema bound to the destination topic.                |
-| **IR-4.2.2** | The Kernel **MUST** check if `args->topic` matches a verified dynamic channel URI.                                                                                                          |
-| **IR-4.2.3** | If the topic is a dynamic channel, the Kernel **MUST** append the event to the ring buffer. If the buffer is full, the Kernel **MUST** return `FILAMENT_ERR_IO` immediately (Non-Blocking). |
-| **IR-4.2.4** | If the topic is a static topic, the Kernel **MUST** write the event to the staging area.                                                                                                    |
-| **IR-4.2.5** | If the payload contains `FILAMENT_VAL_BLOB`, the Kernel **MUST** transfer the blob reference count to the channel or recipient. The blob data itself is **NOT** copied.                     |
-| **IR-4.2.6** | If the topic is a dynamic channel, the Kernel **MUST** return `FILAMENT_ERR_INVALID` if `args->len` exceeds the `msg_size` configured in the Channel Definition.                            |
+| **KR-4.2.1** | If `args->flags` contains `FILAMENT_IO_VAL`, the Kernel **MUST** recursively validate and serialize the payload structure against the schema bound to the destination topic.                |
+| **KR-4.2.2** | The Kernel **MUST** check if `args->topic` matches a verified dynamic channel URI.                                                                                                          |
+| **KR-4.2.3** | If the topic is a dynamic channel, the Kernel **MUST** append the event to the ring buffer. If the buffer is full, the Kernel **MUST** return `FILAMENT_ERR_IO` immediately (Non-Blocking). |
+| **KR-4.2.4** | If the topic is a static topic, the Kernel **MUST** write the event to the staging area.                                                                                                    |
+| **KR-4.2.5** | If the payload contains `FILAMENT_VAL_BLOB`, the Kernel **MUST** transfer the blob reference count to the channel or recipient. The blob data itself is **NOT** copied.                     |
+| **KR-4.2.6** | If the topic is a dynamic channel, the Kernel **MUST** return `FILAMENT_ERR_INVALID` if `args->len` exceeds the `msg_size` configured in the Channel Definition.                            |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                     |
+| :----------- | :------------------------------------------------------------------------------------------------------------- |
+| **MR-4.2.1** | `args->topic` **MUST** be a valid UTF-8 string.                                                                |
+| **MR-4.2.2** | If `args->flags` contains `FILAMENT_IO_VAL`, `args->data` **MUST** point to a valid `FilamentValue` structure. |
 
 ### 4.3 filament_blob_alloc
 
 Allocates a new blob.
 
-**Args:** `FilamentBlobAllocArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentBlobAllocArgs`.     |
+
 **Return:** `i64` - `FILAMENT_OK` or error code.
 
-**Valid Usage**
-
-| ID           | Constraint                                                                                                       |
-| :----------- | :--------------------------------------------------------------------------------------------------------------- |
-| **VU-4.3.1** | The pointer returned in `args->out_ref` is valid **ONLY** for the duration of the current Weave unless retained. |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                       |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **IR-4.3.1** | If `args->flags` includes `FILAMENT_IO_DMA` but direct memory access is unavailable, the Kernel **MUST** return `FILAMENT_ERR_OOM`.               |
-| **IR-4.3.2** | If `args->flags` includes `FILAMENT_IO_DMA_OPTIONAL` and direct memory access is unavailable, the Kernel **MUST** allocate standard memory.       |
-| **IR-4.3.3** | If `args->flags` includes `FILAMENT_IO_DMA` AND `FILAMENT_IO_DMA_OPTIONAL`, the kernel must operate as if only `FILAMENT_IO_DMA_OPTIONAL` is set. |
-| **IR-4.3.4** | The Kernel **MUST** deduct `args->size` from the module's available memory quota.                                                                 |
-| **IR-4.3.5** | For system contexts, the Kernel **MUST NOT** perform dynamic heap allocations (`malloc`) during this call; it must use pre-allocated pools.       |
+| **KR-4.3.1** | If `args->flags` includes `FILAMENT_IO_DMA` but direct memory access is unavailable, the Kernel **MUST** return `FILAMENT_ERR_OOM`.               |
+| **KR-4.3.2** | If `args->flags` includes `FILAMENT_IO_DMA_OPTIONAL` and direct memory access is unavailable, the Kernel **MUST** allocate standard memory.       |
+| **KR-4.3.3** | If `args->flags` includes `FILAMENT_IO_DMA` AND `FILAMENT_IO_DMA_OPTIONAL`, the kernel must operate as if only `FILAMENT_IO_DMA_OPTIONAL` is set. |
+| **KR-4.3.4** | The Kernel **MUST** deduct `args->size` from the module's available memory quota.                                                                 |
+| **KR-4.3.5** | For system contexts, the Kernel **MUST NOT** perform dynamic heap allocations (`malloc`) during this call; it must use pre-allocated pools.       |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                       |
+| :----------- | :--------------------------------------------------------------------------------------------------------------- |
+| **MR-4.3.1** | The pointer returned in `args->out_ref` is valid **ONLY** for the duration of the current Weave unless retained. |
 
 ### 4.4 filament_blob_map
 
 Maps an existing blob into the module's address space.
 
-**Args:** `FilamentBlobMapArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentBlobMapArgs`.       |
+
 **Return:** `i64` - `FILAMENT_OK` or error code.
 
-**Valid Usage**
-
-| ID           | Constraint                                                                                    |
-| :----------- | :-------------------------------------------------------------------------------------------- |
-| **VU-4.4.1** | The module **MUST** have access rights to the blob ID via an event or resource configuration. |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                 |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-| **IR-4.4.1** | The Kernel **MUST** verify the module has access rights to `args->id`.                                                                      |
-| **IR-4.4.2** | The pointer returned in `args->out_ref` **MUST** be valid within the module's virtual memory space.                                         |
-| **IR-4.4.3** | For native contexts, the returned pointer **MUST** be a direct pointer to the underlying buffer (Zero-Copy).                                |
-| **IR-4.4.4** | The Kernel **MUST** return `FILAMENT_ERR_PERM` if `args->flags` requests permissions that are not granted by the underlying Blob reference. |
+| **KR-4.4.1** | The Kernel **MUST** verify the module has access rights to `args->id`.                                                                      |
+| **KR-4.4.2** | The pointer returned in `args->out_ref` **MUST** be valid within the module's virtual memory space.                                         |
+| **KR-4.4.3** | For native contexts, the returned pointer **MUST** be a direct pointer to the underlying buffer (Zero-Copy).                                |
+| **KR-4.4.4** | The Kernel **MUST** return `FILAMENT_ERR_PERM` if `args->flags` requests permissions that are not granted by the underlying Blob reference. |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                    |
+| :----------- | :-------------------------------------------------------------------------------------------- |
+| **MR-4.4.1** | The module **MUST** have access rights to the blob ID via an event or resource configuration. |
 
 ### 4.5 filament_blob_retain
 
 Pins a blob ID to prevent garbage collection.
 
-**Args:** `FilamentBlobRetainArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentBlobRetainArgs`.    |
+
 **Return:** `i64` - `FILAMENT_OK` or error code.
 
-**Valid Usage**
-
-| ID           | Constraint                                                         |
-| :----------- | :----------------------------------------------------------------- |
-| **VU-4.5.1** | Modules in `stateless` contexts **SHOULD NOT** call this function. |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                          |
 | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-4.5.1** | The Kernel **MUST** verify that the calling module currently owns or holds a reference to `args->id`.                                                                                |
-| **IR-4.5.2** | The Kernel **MUST** charge the retained size against the module's persistent storage quota.                                                                                          |
-| **IR-4.5.3** | The Kernel **MUST** treat the retention request as provisional. If the Weave is discarded the Kernel **MUST** revert the reference count increment, ensuring the Blob is cleaned up. |
+| **KR-4.5.1** | The Kernel **MUST** verify that the calling module currently owns or holds a reference to `args->id`.                                                                                |
+| **KR-4.5.2** | The Kernel **MUST** charge the retained size against the module's persistent storage quota.                                                                                          |
+| **KR-4.5.3** | The Kernel **MUST** treat the retention request as provisional. If the Weave is discarded the Kernel **MUST** revert the reference count increment, ensuring the Blob is cleaned up. |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                         |
+| :----------- | :----------------------------------------------------------------- |
+| **MR-4.5.1** | Modules in `stateless` contexts **SHOULD NOT** call this function. |
 
 ### 4.6 filament_tl_open
 
 Opens a cursor to the process timeline.
 
-**Args:** `FilamentTimelineOpenArgs`
-**Return:** `i64` - Handle ID or error code.
+**Args:**
 
-**Valid Usage:**
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentTimelineOpenArgs`.  |
 
-| ID           | Constraint                                                   |
-| :----------- | :----------------------------------------------------------- |
-| **VU-4.6.1** | `args->topic` **MUST** point to a valid UTF-8 string prefix. |
+**Return:** `i64` - `FilamentCursorHandle` or error code.
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                              |
 | :----------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-4.6.1** | The Kernel **MUST** enforce access control lists, ensuring a module cannot query events it is not authorized to see via manifest inputs. |
-| **IR-4.6.2** | Cursors **MUST** be invalidated if the underlying timeline segment is pruned.                                                            |
+| **KR-4.6.1** | The Kernel **MUST** enforce access control lists, ensuring a module cannot query events it is not authorized to see via manifest inputs. |
+| **KR-4.6.2** | Cursors **MUST** be invalidated if the underlying timeline segment is pruned.                                                            |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                   |
+| :----------- | :----------------------------------------------------------- |
+| **MR-4.6.1** | `args->topic` **MUST** point to a valid UTF-8 string prefix. |
 
 ### 4.7 filament_tl_next
 
 Streams a batch of events from the cursor.
 
-**Args:** `FilamentTimelineNextArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentTimelineNextArgs`.  |
+
 **Return:** `i64` - Bytes written, `0` for EOF, or error code.
 
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                               |
 | :----------- | :-------------------------------------------------------------------------------------------------------- |
-| **IR-4.7.1** | If no more events are available, the Kernel **MUST** return `0` (EOF).                                    |
-| **IR-4.7.2** | The Kernel **MUST NOT** write partial events.                                                             |
-| **IR-4.7.3** | The Kernel **MUST** relocate pointers within the output buffer to be valid in the module's address space. |
+| **KR-4.7.1** | If no more events are available, the Kernel **MUST** return `0` (EOF).                                    |
+| **KR-4.7.2** | The Kernel **MUST NOT** write partial events.                                                             |
+| **KR-4.7.3** | The Kernel **MUST** relocate pointers within the output buffer to be valid in the module's address space. |
 
 ### 4.8 filament_tl_close
 
 Closes the cursor.
 
-**Args:** `FilamentTimelineCloseArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentTimelineCloseArgs`. |
+
 **Return:** `i64` - `FILAMENT_OK`.
 
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                               |
 | :----------- | :------------------------------------------------------------------------ |
-| **IR-4.8.1** | The Kernel **MUST** release any resources associated with `args->handle`. |
+| **KR-4.8.1** | The Kernel **MUST** release any resources associated with `args->handle`. |
 
 ### 4.9 filament_channel_create
 
 Allocates a typed communication channel.
 
-**Args:** `FilamentChannelCreateArgs`
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentChannelCreateArgs`. |
+
 **Return:** `i64` - Positive channel handle ID or error code.
 
-**Valid Usage:**
-
-| ID           | Constraint                                       |
-| :----------- | :----------------------------------------------- |
-| **VU-4.9.1** | `args->def.capacity` **MUST** be greater than 0. |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                                              |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-4.9.1** | The Kernel **MUST** generate a unique virtual topic URI within the reserved namespace and write it to `args->out_ptr`.                                                                                   |
-| **IR-4.9.2** | The Kernel **MUST** allocate a fixed-size ring buffer of `args->def.capacity` slots.                                                                                                                     |
-| **IR-4.9.3** | The Kernel **MUST** deduct `capacity * max_msg_size` from the creator's memory budget. If insufficient funds exist, return `FILAMENT_ERR_OOM`.                                                           |
-| **IR-4.9.4** | When a channel is destroyed, the Kernel **MUST** iterate over all pending events in the ring buffer. If an event contains a `FILAMENT_VAL_BLOB`, the Kernel **MUST** decrement the blob reference count. |
-| **IR-4.9.5** | When a channel is destroyed, the Kernel **MUST** immediately unblock any threads suspended on that channel. These operations **MUST** return `FILAMENT_ERR_NOT_FOUND`.                                   |
+| **KR-4.9.1** | The Kernel **MUST** generate a unique virtual topic URI within the reserved namespace and write it to `args->out_ptr`.                                                                                   |
+| **KR-4.9.2** | The Kernel **MUST** allocate a fixed-size ring buffer of `args->def.capacity` slots.                                                                                                                     |
+| **KR-4.9.3** | The Kernel **MUST** deduct `capacity * max_msg_size` from the creator's memory budget. If insufficient funds exist, return `FILAMENT_ERR_OOM`.                                                           |
+| **KR-4.9.4** | When a channel is destroyed, the Kernel **MUST** iterate over all pending events in the ring buffer. If an event contains a `FILAMENT_VAL_BLOB`, the Kernel **MUST** decrement the blob reference count. |
+| **KR-4.9.5** | When a channel is destroyed, the Kernel **MUST** immediately unblock any threads suspended on that channel. These operations **MUST** return `FILAMENT_ERR_NOT_FOUND`.                                   |
+
+**Module Requirements:**
+
+| ID           | Constraint                                       |
+| :----------- | :----------------------------------------------- |
+| **MR-4.9.1** | `args->def.capacity` **MUST** be greater than 0. |
 
 ### 4.10 filament_process_spawn
 
 Instantiates a new child process.
 
-**Args:** `FilamentProcessSpawnArgs`
-**Return:** `i64` - Positive child process ID or error code.
+**Args:**
 
-**Implementation Requirements**
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentProcessSpawnArgs`.  |
+
+**Return:** `i64` - `FilamentProcessHandle` or error code.
+
+**Kernel Requirements:**
 
 | ID             | Requirement                                                                                                                                                                                                          |
 | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-4.10.1**  | The Kernel **MUST** perform a deep copy of the `modules`, `bindings`, and `limits` structures to ensure isolation.                                                                                                   |
-| **IR-4.10.2**  | For every topic in the `channels` binding map, the Kernel **MUST** enforce exact string equality between the child's declared topic schema URI and the channel's schema URI.                                         |
-| **IR-4.10.3**  | The Kernel **MUST** deduct `limits.mem_max` from the parent's memory budget.                                                                                                                                         |
-| **IR-4.10.4**  | The Kernel **MUST** assign process IDs using a strictly monotonic counter.                                                                                                                                           |
-| **IR-4.10.5**  | If `limits.policy` is `FILAMENT_SCHED_DEDICATED`, the Kernel **MUST** allocate a dedicated thread if exokernel or physical core if unikernel.                                                                        |
-| **IR-4.10.6**  | If `limits.policy` is `FILAMENT_SCHED_DEDICATED`, the Kernel **MUST NOT** block the global weave cycle waiting for this process. Synchronization must occur solely via Channels.                                     |
-| **IR-4.10.7**  | For each module in `modules`, the Kernel **MUST** verify that the Content Hash of the loaded binary matches the `digest` string provided. If they do not match, the spawn **MUST** fail with `FILAMENT_ERR_INVALID`. |
-| **IR-4.10.8**  | The Kernel **MUST** validate that the requested `context` is permitted by the Host policy (e.g., preventing a `LOGIC` process from spawning a `DRIVER` module).                                                      |
-| **IR-4.10.9**  | For every binding in `channels`, the Kernel **MUST** verify that the `root_type` declared by the Child's input/output definition matches the `root_type` of the bound Channel.                                       |
-| **IR-4.10.10** | The Kernel **MUST** invoke `filament_init` on the child process immediately upon instantiation. If `init` fails, the spawn is aborted. The execution cost of `init` is charged to the parent budget.                 |
+| **KR-4.10.1**  | The Kernel **MUST** perform a deep copy of the `modules`, `bindings`, and `limits` structures to ensure isolation.                                                                                                   |
+| **KR-4.10.2**  | For every topic in the `channels` binding map, the Kernel **MUST** enforce exact string equality between the child's declared topic schema URI and the channel's schema URI.                                         |
+| **KR-4.10.3**  | The Kernel **MUST** deduct `limits.mem_max` from the parent's memory budget.                                                                                                                                         |
+| **KR-4.10.4**  | The Kernel **MUST** assign process IDs using a strictly monotonic counter.                                                                                                                                           |
+| **KR-4.10.5**  | If `limits.policy` is `FILAMENT_SCHED_DEDICATED`, the Kernel **MUST** allocate a dedicated thread if exokernel or physical core if unikernel.                                                                        |
+| **KR-4.10.6**  | If `limits.policy` is `FILAMENT_SCHED_DEDICATED`, the Kernel **MUST NOT** block the global weave cycle waiting for this process. Synchronization must occur solely via Channels.                                     |
+| **KR-4.10.7**  | For each module in `modules`, the Kernel **MUST** verify that the Content Hash of the loaded binary matches the `digest` string provided. If they do not match, the spawn **MUST** fail with `FILAMENT_ERR_INVALID`. |
+| **KR-4.10.8**  | The Kernel **MUST** validate that the requested `context` is permitted by the Host policy (e.g., preventing a `LOGIC` process from spawning a `DRIVER` module).                                                      |
+| **KR-4.10.9**  | For every binding in `channels`, the Kernel **MUST** verify that the `root_tag` declared by the Child's input/output definition matches the `root_tag` of the bound Channel.                                         |
+| **KR-4.10.10** | The Kernel **MUST** invoke `filament_init` on the child process immediately upon instantiation. If `init` fails, the spawn is aborted. The execution cost of `init` is charged to the parent budget.                 |
 
 ### 4.11 filament_process_terminate
 
 Schedules immediate termination of a process.
 
-**Args:** `FilamentProcessTerminateArgs`
+**Args:**
+
+| Parameter | Type                    | Description                                |
+| :-------- | :---------------------- | :----------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context.    |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentProcessTerminateArgs`. |
+
 **Return:** `i64` - `FILAMENT_OK` or error code.
 
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID            | Requirement                                                                                                                                                                        |
 | :------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-4.11.1** | The Kernel **MUST** execute teardown in strict order: suspend child, destroy channels owned by child, and free child resources.                                                    |
-| **IR-4.11.2** | Upon successful termination, the Kernel **MUST** credit the child's memory limit back to the parent's available budget.                                                            |
-| **IR-4.11.3** | If a process is terminated in the same Weave cycle it was spawned, the Kernel **MUST** simply discard the pending spawn record. The Child **MUST NOT** be initialized or executed. |
+| **KR-4.11.1** | The Kernel **MUST** execute teardown in strict order: suspend child, destroy channels owned by child, and free child resources.                                                    |
+| **KR-4.11.2** | Upon successful termination, the Kernel **MUST** credit the child's memory limit back to the parent's available budget.                                                            |
+| **KR-4.11.3** | If a process is terminated in the same Weave cycle it was spawned, the Kernel **MUST** simply discard the pending spawn record. The Child **MUST NOT** be initialized or executed. |
 
 ## 5. Module Interface Functions
 
@@ -1034,20 +1066,20 @@ Negotiates ABI version and memory requirements. This is the **Bootstrap Entry Po
 
 **Return:** `u64` - Pointer to `FilamentModuleInfo` struct within the module's static data segment.
 
-**Valid Usage**
-
-| ID           | Constraint                                                                                                                                                  |
-| :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **VU-5.1.1** | The Module **MUST** return a pointer to a valid `FilamentModuleInfo` structure residing in the module's pre-allocated data segment (e.g., `.data` section). |
-| **VU-5.1.2** | The `magic` field in the returned struct **MUST** match the system constant `FILAMENT_MAGIC`.                                                               |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                           |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-| **IR-5.1.1** | The Kernel **MUST** validate that the `version` string returned by the Module matches the version specified in the Module Definition. |
-| **IR-5.1.2** | The Kernel **MUST** verify that the returned `mem_req` does not exceed the context limits.                                            |
-| **IR-5.1.3** | The Kernel **MUST** reject the module if the returned `abi_ver` is incompatible with the Kernel's supported version logic.            |
+| **KR-5.1.1** | The Kernel **MUST** validate that the `version` string returned by the Module matches the version specified in the Module Definition. |
+| **KR-5.1.2** | The Kernel **MUST** verify that the returned `mem_req` does not exceed the context limits.                                            |
+| **KR-5.1.3** | The Kernel **MUST** reject the module if the returned `abi_ver` is incompatible with the Kernel's supported version logic.            |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                                                                  |
+| :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MR-5.1.1** | The Module **MUST** return a pointer to a valid `FilamentModuleInfo` structure residing in the module's pre-allocated data segment (e.g., `.data` section). |
+| **MR-5.1.2** | The `magic` field in the returned struct **MUST** match the system constant `FILAMENT_MAGIC`.                                                               |
 
 ### 5.2 filament_reserve
 
@@ -1061,80 +1093,117 @@ Allocates a contiguous block of memory within the module. This acts as the syste
 
 **Return:** `FilamentAddress` - Pointer to the allocated block start, or `FILAMENT_NULL` on failure.
 
-**Valid Usage**
-
-| ID           | Constraint                                                                                                                          |
-| :----------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-| **VU-5.2.1** | The Module **MUST** return a valid, non-zero pointer to a contiguous region of at least `size` bytes.                               |
-| **VU-5.2.2** | The returned pointer **MUST** be aligned to a multiple of `alignment`.                                                              |
-| **VU-5.2.3** | The Module **MUST NOT** modify the contents of this region after returning the pointer, as the Kernel will populate it immediately. |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                    |
 | :----------- | :------------------------------------------------------------- |
-| **IR-5.2.1** | The Kernel **MUST** provide a non-zero size.                   |
-| **IR-5.2.2** | The Kernel **MUST** provide an alignment that is a power of 2. |
+| **KR-5.2.1** | The Kernel **MUST** provide a non-zero size.                   |
+| **KR-5.2.2** | The Kernel **MUST** provide an alignment that is a power of 2. |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                                          |
+| :----------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| **MR-5.2.1** | The Module **MUST** return a valid, non-zero pointer to a contiguous region of at least `size` bytes.                               |
+| **MR-5.2.2** | The returned pointer **MUST** be aligned to a multiple of `alignment`.                                                              |
+| **MR-5.2.3** | The Module **MUST NOT** modify the contents of this region after returning the pointer, as the Kernel will populate it immediately. |
 
 ### 5.3 filament_init
 
 Initializes the module using memory-resident configuration.
 
-| Parameter  | Type              | Description                    |
-| :--------- | :---------------- | :----------------------------- |
-| `args_ptr` | `FilamentAddress` | Pointer to `FilamentInitArgs`. |
+**Args:**
 
-**Return:** `i32` - `0` on Success, `-1` on Failure.
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentInitArgs`.          |
 
-**Valid Usage**
+**Return:** `i64` - `0` on Success, `-1` on Failure.
 
-| ID           | Constraint                                                                                                                                        |
-| :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **VU-5.3.1** | The Module **MUST** deep-copy any data from `args_ptr` that it needs to persist, as the pointers are valid **ONLY** for the duration of the call. |
-| **VU-5.3.2** | The Module **MUST** return `0` if initialization completes successfully.                                                                          |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                  |
 | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-5.3.1** | The Kernel **MUST** ensure `args_ptr` points to valid initialized memory within the module address space.                                                    |
-| **IR-5.3.2** | The Kernel **MUST** populate `args->host->limits` with the exact resource quota enforced on the module for the current execution cycle.                      |
-| **IR-5.3.3** | The Kernel **MUST** populate `args->host->cores` with the number of concurrent execution cores currently available. For single-threaded, this **MUST** be 0. |
+| **KR-5.3.1** | The Kernel **MUST** ensure `args_ptr` points to valid initialized memory within the module address space.                                                    |
+| **KR-5.3.2** | The Kernel **MUST** populate `args->host->limits` with the exact resource quota enforced on the module for the current execution cycle.                      |
+| **KR-5.3.3** | The Kernel **MUST** populate `args->host->cores` with the number of concurrent execution cores currently available. For single-threaded, this **MUST** be 0. |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                                                        |
+| :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **MR-5.3.1** | The Module **MUST** deep-copy any data from `args_ptr` that it needs to persist, as the pointers are valid **ONLY** for the duration of the call. |
+| **MR-5.3.2** | The Module **MUST** return `0` if initialization completes successfully.                                                                          |
 
 ### 5.4 filament_weave
 
 Executes the logic cycle.
 
-| Parameter  | Type              | Description                     |
-| :--------- | :---------------- | :------------------------------ |
-| `args_ptr` | `FilamentAddress` | Pointer to `FilamentWeaveArgs`. |
+**Args:**
+
+| Parameter | Type                    | Description                             |
+| :-------- | :---------------------- | :-------------------------------------- |
+| `ctx`     | `FilamentContextHandle` | Handle to the current Filament context. |
+| `args`    | `FilamentAddress`       | Pointer to `FilamentWeaveArgs`.         |
 
 **Return:** `i64`
 
-- `FILAMENT_PARK` (`0`): Commit state. Suspend execution until new events arrive.
-- `FILAMENT_YIELD` (`1`): Commit state. Reschedule execution as soon as possible.
+- `FILAMENT_PARK`: Commit state. Suspend execution until new events arrive.
+- `FILAMENT_YIELD`: Commit state. Reschedule execution as soon as possible.
 - Negative Value: Error/Rollback.
 
-**Valid Usage**
-
-| ID           | Constraint                                                                                                            |
-| :----------- | :-------------------------------------------------------------------------------------------------------------------- |
-| **VU-5.4.1** | The Module **MUST NOT** use any entropy source other than `args->rand_seed`.                                          |
-| **VU-5.4.2** | The Module **MUST** populate `args->user_data` before returning if it requires context restoration on the next cycle. |
-| **VU-5.4.3** | The Module **MUST NOT** call `filament_weave` recursively.                                                            |
-| **VU-5.4.4** | If running in a system context, the Module **MUST NOT** perform dynamic heap allocations during this call.            |
-
-**Implementation Requirements**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                                                                                  |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-5.4.1** | The Kernel **MUST** populate `args->wake_flags` to indicate the cause of scheduling.                                                                                                                                                         |
-| **IR-5.4.2** | The Kernel **MUST** guarantee that `args->ctx` is a valid handle for the duration of the call.                                                                                                                                               |
-| **IR-5.4.3** | The Kernel **MUST** enforce the `args->time_limit` by preempting execution if the budget is exceeded.                                                                                                                                        |
-| **IR-5.4.4** | If the Module returns `FILAMENT_YIELD`, the Kernel **MUST** commit the Staging Area but **SHOULD** keep the process in the "Ready" queue for immediate rescheduling (Cooperative Multitasking).                                              |
-| **IR-5.4.5** | If the Module returns `FILAMENT_PARK`, the Kernel **MUST** inspect all input sources. If unread data exists, the Kernel **MUST** ignore the `PARK` request and treat it as `FILAMENT_YIELD` immediately rescheduling the module.             |
-| **IR-5.4.6** | If the Module returned `FILAMENT_YIELD` or `FILAMENT_PARK` in the previous cycle, the Kernel **MUST** restore the stored `user_data` value into `args->user_data` for the current cycle. For `FILAMENT_WAKE_INIT`, this value **MUST** be 0. |
-| **IR-5.4.7** | If the Execution Context is configured as **Stateless**, the Kernel **MUST** always provide `0` in `args->user_data` at the start of a Weave, ignoring any value set by the previous cycle.                                                  |
+| **KR-5.4.1** | The Kernel **MUST** populate `args->wake_flags` to indicate the cause of scheduling.                                                                                                                                                         |
+| **KR-5.4.2** | The Kernel **MUST** guarantee that `args->ctx` is a valid handle for the duration of the call.                                                                                                                                               |
+| **KR-5.4.3** | The Kernel **MUST** enforce the `args->time_limit` by preempting execution if the budget is exceeded.                                                                                                                                        |
+| **KR-5.4.4** | If the Module returns `FILAMENT_YIELD`, the Kernel **MUST** commit the Staging Area but **SHOULD** keep the process in the "Ready" queue for immediate rescheduling (Cooperative Multitasking).                                              |
+| **KR-5.4.5** | If the Module returns `FILAMENT_PARK`, the Kernel **MUST** inspect all input sources. If unread data exists, the Kernel **MUST** ignore the `PARK` request and treat it as `FILAMENT_YIELD` immediately rescheduling the module.             |
+| **KR-5.4.6** | If the Module returned `FILAMENT_YIELD` or `FILAMENT_PARK` in the previous cycle, the Kernel **MUST** restore the stored `user_data` value into `args->user_data` for the current cycle. For `FILAMENT_WAKE_INIT`, this value **MUST** be 0. |
+| **KR-5.4.7** | If the Execution Context is configured as **Stateless**, the Kernel **MUST** always provide `0` in `args->user_data` at the start of a Weave, ignoring any value set by the previous cycle.                                                  |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                            |
+| :----------- | :-------------------------------------------------------------------------------------------------------------------- |
+| **MR-5.4.1** | The Module **MUST NOT** use any entropy source other than `args->rand_seed`.                                          |
+| **MR-5.4.2** | The Module **MUST** populate `args->user_data` before returning if it requires context restoration on the next cycle. |
+| **MR-5.4.3** | The Module **MUST NOT** call `filament_weave` recursively.                                                            |
+| **MR-5.4.4** | If running in a system context, the Module **MUST NOT** perform dynamic heap allocations during this call.            |
+
+---
+
+## 6. Additional Requirements
+
+**Common Requirements:**
+
+| ID           | Requirement                                                                                                                                                                                                            |
+| :----------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CR-6.0.1** | All multi-byte integers **MUST** use Little-Endian encoding.                                                                                                                                                           |
+| **CR-6.0.2** | All ABI structures **MUST** be aligned to 8-byte boundaries.                                                                                                                                                           |
+| **CR-6.0.3** | Native Hosts and Unmanaged Modules **MUST** adhere to the standard C Application Binary Interface of the **Host Platform**.                                                                                            |
+| **CR-6.0.4** | WASM Hosts and Managed/Logical Modules **MUST** use the standard Wasm import/export convention, where arguments are passed on the operand stack or via locals, matching the `extern "C"` layout of the guest language. |
+
+**Kernel Requirements:**
+
+| ID           | Requirement                                                                                                                                                                 |
+| :----------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **KR-6.0.1** | The Kernel **MUST** synchronize access to dynamic channels across Execution Contexts ensuring that they are thread safe.                                                    |
+| **KR-6.0.1** | The Kernel **MUST** perform a byte-wise comparison when matching URIs.                                                                                                      |
+| **KR-6.0.2** | The Kernel **MUST** reject URIs containing embedded null characters (`\0`) or non-printable ASCII control characters with `FILAMENT_ERR_INVALID`.                           |
+| **KR-6.0.3** | When matching module input/output topologies (linking), the Kernel **MUST** require exact binary equality between the Producer's declared Topic and the Consumer's Binding. |
+
+**Module Requirements:**
+
+| ID           | Requirement                                                                                                                  |
+| :----------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| **MR-6.0.1** | The Module **SHOULD** ensure all URIs passed to the Kernel are pre-normalized to **IETF RFC 3986** canonical form.           |
+| **MR-6.0.2** | The Module **MUST NOT** persist `KernelContextHandles`.                                                                      |
+| **MR-6.0.3** | The Module **MUST NOT** pass `KernelContextHandles` to any functions that are not Kernel intrinsics as the first positional. |
+| **MR-6.0.4** | WebAssembly Modules **MUST** import all Kernel Interface functions from the module namespace `filament`.                     |
 
 ---
 
@@ -1167,11 +1236,11 @@ Capabilities enforce constraints on the execution model of the consuming Module.
 - **Agnostic:** Safe for Instance Pooling. The Module uses the capability via atomic events or transient handles.
 - **Pinned:** Requires a persistent execution context. These capabilities typically involve hardware locking, expensive initialization, or DMA mappings that cannot be safely reset between Weaves.
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                        |
 | :----------- | :--------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-1.4.1** | The Kernel **MUST** reject the loading of any Module that declares a **Stateless** lifecycle but requests a **Pinned** capability. |
+| **KR-1.4.1** | The Kernel **MUST** reject the loading of any Module that declares a **Stateless** lifecycle but requests a **Pinned** capability. |
 
 ---
 
@@ -1198,14 +1267,14 @@ The foundational capability set required for the Filament lifecycle. It provides
 | `filament/core/log`   | Outbound  | `FilamentLogRecord`   | Emits a structured log message. |
 | `filament/core/panic` | Outbound  | `FilamentPanicRecord` | Signals an unrecoverable error. |
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                      |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-2.1.1** | Upon receiving a `filament/core/panic` event, the Kernel **MUST** mark the Process as faulted, discard the Staging Area (rollback), and transition the system to a Safe State.   |
-| **IR-2.1.2** | The Kernel **SHOULD** forward events from `filament/core/log` to the configured host telemetry sink.                                                                             |
-| **IR-2.1.3** | When handling `filament/core/log`, the Kernel **MUST** validate that the payload matches the `FilamentLogRecord` ABI.                                                            |
-| **IR-2.1.4** | Blobs created via `filament_blob_alloc` **MUST** be destroyed at the end of the Weave unless `filament_blob_retain` is called or the Blob ID is referenced in a committed event. |
+| **KR-2.1.1** | Upon receiving a `filament/core/panic` event, the Kernel **MUST** mark the Process as faulted, discard the Staging Area (rollback), and transition the system to a Safe State.   |
+| **KR-2.1.2** | The Kernel **SHOULD** forward events from `filament/core/log` to the configured host telemetry sink.                                                                             |
+| **KR-2.1.3** | When handling `filament/core/log`, the Kernel **MUST** validate that the payload matches the `FilamentLogRecord` ABI.                                                            |
+| **KR-2.1.4** | Blobs created via `filament_blob_alloc` **MUST** be destroyed at the end of the Weave unless `filament_blob_retain` is called or the Blob ID is referenced in a committed event. |
 
 ---
 
@@ -1228,13 +1297,13 @@ Enables Dynamic Supervision. Allows the Module to spawn, monitor, and terminate 
 | `filament/process/status`  | Inbound   | `FilamentProcessStatus`  | Notifications about Child process state changes. |
 | `filament/lifecycle/event` | Inbound   | `FilamentLifecycleEvent` | Commands from the Kernel/Parent to stop/reload.  |
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                                                                                                                     |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **IR-2.2.1** | If a Parent Process terminates, the Kernel **MUST** immediately terminate all Child Processes spawned by that Parent (Cascading Failure).                                                                                                                                       |
-| **IR-2.2.2** | The Kernel **SHOULD** emit a `filament/lifecycle/event` with `cmd=1` (Stop) to a process before invoking `filament_process_terminate`.                                                                                                                                          |
-| **IR-2.2.3** | **Capability Isolation:** The Kernel **MUST** reject a `filament_process_spawn` request if the Child's Manifest requests capabilities that the Parent does not possess, unless the Kernel configuration explicitly permits privilege escalation (e.g., via a `sudo` mechanism). |
+| **KR-2.2.1** | If a Parent Process terminates, the Kernel **MUST** immediately terminate all Child Processes spawned by that Parent (Cascading Failure).                                                                                                                                       |
+| **KR-2.2.2** | The Kernel **SHOULD** emit a `filament/lifecycle/event` with `cmd=1` (Stop) to a process before invoking `filament_process_terminate`.                                                                                                                                          |
+| **KR-2.2.3** | **Capability Isolation:** The Kernel **MUST** reject a `filament_process_spawn` request if the Child's Manifest requests capabilities that the Parent does not possess, unless the Kernel configuration explicitly permits privilege escalation (e.g., via a `sudo` mechanism). |
 
 ---
 
@@ -1247,6 +1316,7 @@ Allows the Module to request wake-up events at specific points in Virtual Time.
 **Types:**
 
 **Type:** `FilamentTimerSet`
+
 **Size:** 16 bytes
 
 | Offset | Field    | Type  | Description                 |
@@ -1255,6 +1325,7 @@ Allows the Module to request wake-up events at specific points in Virtual Time.
 | 8      | `target` | `u64` | Absolute Virtual Time (ns). |
 
 **Type:** `FilamentTimerFire`
+
 **Size:** 24 bytes
 
 | Offset | Field    | Type  | Description                       |
@@ -1270,18 +1341,18 @@ Allows the Module to request wake-up events at specific points in Virtual Time.
 | `filament/time/set`  | Outbound  | `FilamentTimerSet`  |
 | `filament/time/fire` | Inbound   | `FilamentTimerFire` |
 
-**Valid Usage:**
-
-| ID           | Constraint                                             |
-| :----------- | :----------------------------------------------------- |
-| **VU-2.3.1** | `target` **MUST** be a valid 64-bit integer timestamp. |
-
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                   |
 | :----------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-2.3.1** | The Kernel **MUST** populate the `skew` field in `FilamentTimerFire` with the result of `current_virtual_time - requested_target_time`.       |
-| **IR-2.3.2** | The Kernel **MUST** ensure that if `target` is in the past relative to the current Virtual Time, the timer fires in the immediate next Weave. |
+| **KR-2.3.1** | The Kernel **MUST** populate the `skew` field in `FilamentTimerFire` with the result of `current_virtual_time - requested_target_time`.       |
+| **KR-2.3.2** | The Kernel **MUST** ensure that if `target` is in the past relative to the current Virtual Time, the timer fires in the immediate next Weave. |
+
+**Module Requirements:**
+
+| ID           | Constraint                                             |
+| :----------- | :----------------------------------------------------- |
+| **MR-2.3.1** | `target` **MUST** be a valid 64-bit integer timestamp. |
 
 ---
 
@@ -1294,6 +1365,7 @@ Provides read-only access to the Host environment variables.
 **Types:**
 
 **Type:** `FilamentEnvRead`
+
 **Size:** 24 bytes
 
 | Offset | Field    | Type             | Description                             |
@@ -1302,6 +1374,7 @@ Provides read-only access to the Host environment variables.
 | 8      | `key`    | `FilamentString` | The environment variable key to lookup. |
 
 **Type:** `FilamentEnvVal`
+
 **Size:** 32 bytes
 
 | Offset | Field    | Type             | Description                          |
@@ -1317,11 +1390,11 @@ Provides read-only access to the Host environment variables.
 | `filament/env/read` | Outbound  | `FilamentEnvRead` |
 | `filament/env/val`  | Inbound   | `FilamentEnvVal`  |
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                        |
 | :----------- | :----------------------------------------------------------------------------------------------------------------- |
-| **IR-2.4.1** | The Kernel **MUST NOT** expose variables not explicitly allowlisted in the Process Manifest or Host Configuration. |
+| **KR-2.4.1** | The Kernel **MUST NOT** expose variables not explicitly allowlisted in the Process Manifest or Host Configuration. |
 
 ---
 
@@ -1334,6 +1407,7 @@ Provides restricted access to the host filesystem.
 **Types:**
 
 **Type:** `FilamentFsRead`
+
 **Size:** 40 bytes
 
 | Offset | Field    | Type             | Description      |
@@ -1344,6 +1418,7 @@ Provides restricted access to the host filesystem.
 | 32     | `len`    | `u64`            | Number of bytes. |
 
 **Type:** `FilamentFsWrite`
+
 **Size:** 48 bytes
 
 | Offset | Field    | Type             | Description                        |
@@ -1354,6 +1429,7 @@ Provides restricted access to the host filesystem.
 | 32     | `data`   | `FilamentBlob`   | Blob reference containing content. |
 
 **Type:** `FilamentFsList`
+
 **Size:** 48 bytes
 
 | Offset | Field    | Type             | Description       |
@@ -1365,6 +1441,7 @@ Provides restricted access to the host filesystem.
 | 36     | `_pad`   | `u32`            | Reserved.         |
 
 **Type:** `FilamentFsContent`
+
 **Size:** 48 bytes
 
 | Offset | Field    | Type            | Description                                  |
@@ -1374,6 +1451,7 @@ Provides restricted access to the host filesystem.
 | 16     | `data`   | `FilamentValue` | `FILAMENT_VAL_BLOB` or `FILAMENT_VAL_BYTES`. |
 
 **Type:** `FilamentDirectoryEntry`
+
 **Size:** 32 bytes
 
 | Offset | Field  | Type             | Description                     |
@@ -1384,6 +1462,7 @@ Provides restricted access to the host filesystem.
 | 25     | `_pad` | `u8[7]`          | Reserved.                       |
 
 **Type:** `FilamentFsEntries`
+
 **Size:** 32 bytes
 
 | Offset | Field     | Type            | Description                            |
@@ -1393,6 +1472,7 @@ Provides restricted access to the host filesystem.
 | 16     | `entries` | `FilamentArray` | Pointer to `FilamentDirectoryEntry[]`. |
 
 **Type:** `FilamentFsAck`
+
 **Size:** 24 bytes
 
 | Offset | Field     | Type  | Description                 |
@@ -1412,20 +1492,20 @@ Provides restricted access to the host filesystem.
 | `filament/fs/entries` | Inbound   | `FilamentFsEntries` |
 | `filament/fs/ack`     | Inbound   | `FilamentFsAck`     |
 
-**Valid Usage:**
-
-| ID           | Constraint                                                                                                                       |
-| :----------- | :------------------------------------------------------------------------------------------------------------------------------- |
-| **VU-2.3.1** | In `filament/fs/write`, the `data` field **MUST** reference a valid Blob ID owned by the Module.                                 |
-| **VU-2.3.2** | `path` **MUST** be a valid UTF-8 string and **MUST NOT** contain relative parent traversals (`..`) that escape the virtual root. |
-
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                         |
 | :----------- | :------------------------------------------------------------------------------------------------------------------ |
-| **IR-2.3.1** | The Kernel **MUST** validate that `path` is within the allowed directory whitelist defined by the Process Manifest. |
-| **IR-2.3.2** | If the file size exceeds `FILAMENT_MIN_BLOB_BYTES`, the Kernel **MUST** return the content as a `blob`.             |
-| **IR-2.3.3** | Directory listings **MUST** be sorted by the lexicographical order of their NFC-normalized UTF-8 filenames.         |
+| **KR-2.3.1** | The Kernel **MUST** validate that `path` is within the allowed directory whitelist defined by the Process Manifest. |
+| **KR-2.3.2** | If the file size exceeds `FILAMENT_MIN_BLOB_BYTES`, the Kernel **MUST** return the content as a `blob`.             |
+| **KR-2.3.3** | Directory listings **MUST** be sorted by the lexicographical order of their NFC-normalized UTF-8 filenames.         |
+
+**Module Requirements:**
+
+| ID           | Constraint                                                                                                                       |
+| :----------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| **MR-2.3.1** | In `filament/fs/write`, the `data` field **MUST** reference a valid Blob ID owned by the Module.                                 |
+| **MR-2.3.2** | `path` **MUST** be a valid UTF-8 string and **MUST NOT** contain relative parent traversals (`..`) that escape the virtual root. |
 
 ---
 
@@ -1438,6 +1518,7 @@ Provides a persistent Key-Value store.
 **Types:**
 
 **Type:** `FilamentKvSet`
+
 **Size:** 48 bytes
 
 | Offset | Field | Type             | Description    |
@@ -1446,6 +1527,7 @@ Provides a persistent Key-Value store.
 | 16     | `val` | `FilamentValue`  | Value payload. |
 
 **Type:** `FilamentKvGet`
+
 **Size:** 16 bytes
 
 | Offset | Field | Type             | Description |
@@ -1453,6 +1535,7 @@ Provides a persistent Key-Value store.
 | 0      | `key` | `FilamentString` | Lookup Key. |
 
 **Type:** `FilamentKvResult`
+
 **Size:** 64 bytes
 
 | Offset | Field    | Type             | Description           |
@@ -1470,13 +1553,13 @@ Provides a persistent Key-Value store.
 | `filament/kv/get`    | Outbound  | `FilamentKvGet`    |
 | `filament/kv/result` | Inbound   | `FilamentKvResult` |
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                     |
 | :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-2.6.1** | Reads (`get`) **MUST** return the value as it existed at the start of the Weave (Snapshot Isolation).                                           |
-| **IR-2.6.2** | Writes (`set`) are buffered and applied atomically at the end of the Weave.                                                                     |
-| **IR-2.6.3** | If a Module emits multiple `set` events for the same `key` in a single Weave, the Kernel **MUST** apply the last one emitted (Last-Write-Wins). |
+| **KR-2.6.1** | Reads (`get`) **MUST** return the value as it existed at the start of the Weave (Snapshot Isolation).                                           |
+| **KR-2.6.2** | Writes (`set`) are buffered and applied atomically at the end of the Weave.                                                                     |
+| **KR-2.6.3** | If a Module emits multiple `set` events for the same `key` in a single Weave, the Kernel **MUST** apply the last one emitted (Last-Write-Wins). |
 
 ---
 
@@ -1489,6 +1572,7 @@ Provides an egress gateway for HTTP requests.
 **Types:**
 
 **Type:** `FilamentHttpRequest`
+
 **Size:** 88 bytes
 
 | Offset | Field     | Type             | Description              |
@@ -1500,6 +1584,7 @@ Provides an egress gateway for HTTP requests.
 | 56     | `body`    | `FilamentValue`  | Payload (Blob or Bytes). |
 
 **Type:** `FilamentHttpResponse`
+
 **Size:** 72 bytes
 
 | Offset | Field     | Type            | Description         |
@@ -1518,13 +1603,13 @@ Provides an egress gateway for HTTP requests.
 | `filament/net/http/req` | Outbound  | `FilamentHttpRequest`  |
 | `filament/net/http/res` | Inbound   | `FilamentHttpResponse` |
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                                                                                                                                                                          |
 | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **IR-2.7.1** | The Kernel **MUST** perform the network request asynchronously.                                                                                                                                                                      |
-| **IR-2.7.2** | The Kernel **SHOULD** use Blob References for response bodies to avoid copying large payloads into the Staging Area.                                                                                                                 |
-| **IR-2.7.3** | The Kernel **MUST** validate the URL schema. Requests to non-standard schemes (e.g., `file://`, `gopher://`) or localhost (unless explicitly allowed via config) **MUST** be rejected to prevent Server-Side Request Forgery (SSRF). |
+| **KR-2.7.1** | The Kernel **MUST** perform the network request asynchronously.                                                                                                                                                                      |
+| **KR-2.7.2** | The Kernel **SHOULD** use Blob References for response bodies to avoid copying large payloads into the Staging Area.                                                                                                                 |
+| **KR-2.7.3** | The Kernel **MUST** validate the URL schema. Requests to non-standard schemes (e.g., `file://`, `gopher://`) or localhost (unless explicitly allowed via config) **MUST** be rejected to prevent Server-Side Request Forgery (SSRF). |
 
 ---
 
@@ -1537,6 +1622,7 @@ Standardizes external tool invocation schemas.
 **Types:**
 
 **Type:** `FilamentToolInvoke`
+
 **Size:** 56 bytes
 
 | Offset | Field     | Type              | Description             |
@@ -1548,6 +1634,7 @@ Standardizes external tool invocation schemas.
 | 48     | `_pad`    | `u64`             | Reserved.               |
 
 **Type:** `FilamentToolResult`
+
 **Size:** 64 bytes
 
 | Offset | Field    | Type             | Description         |
@@ -1577,24 +1664,25 @@ Provides transactional, buffered access to memory-mapped hardware registers.
 
 - `filament_hw_buffer_write`
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID           | Requirement                                                                       |
 | :----------- | :-------------------------------------------------------------------------------- |
-| **IR-2.9.1** | Writes **MUST** be flushed to physical hardware only during the **Commit Phase**. |
-| **IR-2.9.2** | If the Weave fails, the Kernel **MUST** discard the buffer.                       |
+| **KR-2.9.1** | Writes **MUST** be flushed to physical hardware only during the **Commit Phase**. |
+| **KR-2.9.2** | If the Weave fails, the Kernel **MUST** discard the buffer.                       |
 
 ---
 
 ### 2.10 filament.hw.irq
 
-Allows a System Module to subscribe to hardware interrupts.
+Allows a Unmanaged Module to subscribe to hardware interrupts.
 
 **Affinity:** Pinned
 
 **Types:**
 
 **Type:** `FilamentIrqEvent`
+
 **Size:** 16 bytes
 
 | Offset | Field       | Type  | Description                 |
@@ -1621,11 +1709,11 @@ Grants access to map specific physical memory regions (MMIO).
 
 - Authorizes `filament_blob_map` for specific Resource Keys.
 
-**Implementation Requirements:**
+**Kernel Requirements:**
 
 | ID            | Requirement                                                                                                       |
 | :------------ | :---------------------------------------------------------------------------------------------------------------- |
-| **IR-2.11.1** | The Kernel **MUST** verify the Resource Key requested corresponds to a valid `[resources]` entry in the Manifest. |
+| **KR-2.11.1** | The Kernel **MUST** verify the Resource Key requested corresponds to a valid `[resources]` entry in the Manifest. |
 
 ---
 
@@ -1638,6 +1726,7 @@ Provides bidirectional stream access to UART, SPI, or I2C interfaces.
 **Types:**
 
 **Type:** `FilamentSerialPacket`
+
 **Size:** 56 bytes
 
 | Offset | Field  | Type             | Description              |
