@@ -9997,6 +9997,561 @@
       ],
       "type": "timeseries",
       "description": "14-day rolling average of hours between PR creation and first review (comment or review), split by Internal (team) vs External (community) contributors. Shows team responsiveness."
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "id": 104,
+      "panels": [],
+      "title": "Contributor Insights",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Daily count of new contributors (first-time in rolling 90 days) vs returning contributors who have contributed before.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "New Contributors"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Returning Contributors"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 69
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "queryText": "WITH first_contributions AS (\n  SELECT \n    author,\n    MIN(date(created_at)) as first_pr_date\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\n  GROUP BY author\n),\ndaily_contributors AS (\n  SELECT \n    date(created_at) as pr_date,\n    author\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\n  GROUP BY date(created_at), author\n)\nSELECT \n  CAST(strftime('%s', dc.pr_date) as INTEGER) as time,\n  CASE WHEN fc.first_pr_date = dc.pr_date THEN 'New Contributors' ELSE 'Returning Contributors' END as metric,\n  COUNT(DISTINCT dc.author) as value\nFROM daily_contributors dc\nJOIN first_contributions fc ON dc.author = fc.author\nWHERE CAST(strftime('%s', dc.pr_date) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', dc.pr_date) as INTEGER) <= $__to / 1000\nGROUP BY dc.pr_date, metric\nORDER BY dc.pr_date ASC",
+          "queryType": "table",
+          "rawQueryText": "WITH first_contributions AS (\n  SELECT \n    author,\n    MIN(date(created_at)) as first_pr_date\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN (${repo:singlequote})\n  GROUP BY author\n),\ndaily_contributors AS (\n  SELECT \n    date(created_at) as pr_date,\n    author\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN (${repo:singlequote})\n  GROUP BY date(created_at), author\n)\nSELECT \n  CAST(strftime('%s', dc.pr_date) as INTEGER) as time,\n  CASE WHEN fc.first_pr_date = dc.pr_date THEN 'New Contributors' ELSE 'Returning Contributors' END as metric,\n  COUNT(DISTINCT dc.author) as value\nFROM daily_contributors dc\nJOIN first_contributions fc ON dc.author = fc.author\nWHERE CAST(strftime('%s', dc.pr_date) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', dc.pr_date) as INTEGER) <= $__to / 1000\nGROUP BY dc.pr_date, metric\nORDER BY dc.pr_date ASC",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "New vs Returning Contributors (Daily)",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "30-day rolling retention rate: percentage of contributors from 30-60 days ago who also contributed in the last 30 days.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Retention %",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "green",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 69
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "last"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "queryText": "WITH date_series AS (\n  SELECT DISTINCT date FROM daily_metrics\n  WHERE CAST(strftime('%s', date) as INTEGER) >= $__from / 1000\n    AND CAST(strftime('%s', date) as INTEGER) <= $__to / 1000\n),\nexternal_prs AS (\n  SELECT \n    date(created_at) as pr_date,\n    author\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\n)\nSELECT \n  CAST(strftime('%s', ds.date) as INTEGER) as time,\n  'Retention Rate' as metric,\n  CASE \n    WHEN (SELECT COUNT(DISTINCT author) FROM external_prs WHERE pr_date > date(ds.date, '-60 days') AND pr_date <= date(ds.date, '-30 days')) = 0 THEN 0\n    ELSE ROUND(\n      100.0 * (\n        SELECT COUNT(DISTINCT ep1.author)\n        FROM external_prs ep1\n        WHERE ep1.pr_date > date(ds.date, '-60 days') AND ep1.pr_date <= date(ds.date, '-30 days')\n          AND EXISTS (SELECT 1 FROM external_prs ep2 WHERE ep2.author = ep1.author AND ep2.pr_date > date(ds.date, '-30 days') AND ep2.pr_date <= ds.date)\n      ) / (SELECT COUNT(DISTINCT author) FROM external_prs WHERE pr_date > date(ds.date, '-60 days') AND pr_date <= date(ds.date, '-30 days'))\n    , 1)\n  END as value\nFROM date_series ds\nORDER BY ds.date ASC",
+          "queryType": "table",
+          "rawQueryText": "WITH date_series AS (\n  SELECT DISTINCT date FROM daily_metrics\n  WHERE CAST(strftime('%s', date) as INTEGER) >= $__from / 1000\n    AND CAST(strftime('%s', date) as INTEGER) <= $__to / 1000\n),\nexternal_prs AS (\n  SELECT \n    date(created_at) as pr_date,\n    author\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN (${repo:singlequote})\n)\nSELECT \n  CAST(strftime('%s', ds.date) as INTEGER) as time,\n  'Retention Rate' as metric,\n  CASE \n    WHEN (SELECT COUNT(DISTINCT author) FROM external_prs WHERE pr_date > date(ds.date, '-60 days') AND pr_date <= date(ds.date, '-30 days')) = 0 THEN 0\n    ELSE ROUND(\n      100.0 * (\n        SELECT COUNT(DISTINCT ep1.author)\n        FROM external_prs ep1\n        WHERE ep1.pr_date > date(ds.date, '-60 days') AND ep1.pr_date <= date(ds.date, '-30 days')\n          AND EXISTS (SELECT 1 FROM external_prs ep2 WHERE ep2.author = ep1.author AND ep2.pr_date > date(ds.date, '-30 days') AND ep2.pr_date <= ds.date)\n      ) / (SELECT COUNT(DISTINCT author) FROM external_prs WHERE pr_date > date(ds.date, '-60 days') AND pr_date <= date(ds.date, '-30 days'))\n    , 1)\n  END as value\nFROM date_series ds\nORDER BY ds.date ASC",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Contributor Retention Rate (30-Day Rolling)",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Top external contributors by PR count in the selected time period, excluding bots.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pr_count"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "gauge"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "repos"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 77
+      },
+      "id": 23,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "pr_count"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "queryText": "SELECT \n  author,\n  COUNT(*) as pr_count,\n  GROUP_CONCAT(DISTINCT repo) as repos\nFROM pull_requests\nWHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n  AND author NOT LIKE '%[bot]%'\n  AND author NOT IN ('strands-agent', 'dependabot')\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) <= $__to / 1000\nGROUP BY author\nORDER BY pr_count DESC\nLIMIT 20",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  author,\n  COUNT(*) as pr_count,\n  GROUP_CONCAT(DISTINCT repo) as repos\nFROM pull_requests\nWHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n  AND author NOT LIKE '%[bot]%'\n  AND author NOT IN ('strands-agent', 'dependabot')\n  AND repo IN (${repo:singlequote})\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) <= $__to / 1000\nGROUP BY author\nORDER BY pr_count DESC\nLIMIT 20",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Top External Contributors",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Unique external contributors per repository in the selected time period, excluding bots.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 77
+      },
+      "id": 24,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.8,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "targets": [
+        {
+          "queryText": "SELECT \n  repo,\n  COUNT(DISTINCT author) as unique_contributors\nFROM pull_requests\nWHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n  AND author NOT LIKE '%[bot]%'\n  AND author NOT IN ('strands-agent', 'dependabot')\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) <= $__to / 1000\nGROUP BY repo\nORDER BY unique_contributors DESC",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  repo,\n  COUNT(DISTINCT author) as unique_contributors\nFROM pull_requests\nWHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n  AND author NOT LIKE '%[bot]%'\n  AND author NOT IN ('strands-agent', 'dependabot')\n  AND repo IN (${repo:singlequote})\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(created_at)) as INTEGER) <= $__to / 1000\nGROUP BY repo\nORDER BY unique_contributors DESC",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Unique Contributors by Repository",
+      "transformations": [],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Cumulative count of unique first-time external contributors over time. Shows community growth trajectory.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Total Contributors",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 87
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "queryText": "WITH first_contributions AS (\n  SELECT \n    author,\n    MIN(date(created_at)) as first_pr_date\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\n  GROUP BY author\n),\ndaily_new AS (\n  SELECT \n    first_pr_date as date,\n    COUNT(*) as new_contributors\n  FROM first_contributions\n  GROUP BY first_pr_date\n)\nSELECT \n  CAST(strftime('%s', d.date) as INTEGER) as time,\n  'Cumulative Contributors' as metric,\n  (SELECT SUM(new_contributors) FROM daily_new dn WHERE dn.date <= d.date) as value\nFROM daily_metrics d\nWHERE CAST(strftime('%s', d.date) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', d.date) as INTEGER) <= $__to / 1000\nGROUP BY d.date\nORDER BY d.date ASC",
+          "queryType": "table",
+          "rawQueryText": "WITH first_contributions AS (\n  SELECT \n    author,\n    MIN(date(created_at)) as first_pr_date\n  FROM pull_requests\n  WHERE json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR')\n    AND author NOT LIKE '%[bot]%'\n    AND author NOT IN ('strands-agent', 'dependabot')\n    AND repo IN (${repo:singlequote})\n  GROUP BY author\n),\ndaily_new AS (\n  SELECT \n    first_pr_date as date,\n    COUNT(*) as new_contributors\n  FROM first_contributions\n  GROUP BY first_pr_date\n)\nSELECT \n  CAST(strftime('%s', d.date) as INTEGER) as time,\n  'Cumulative Contributors' as metric,\n  (SELECT SUM(new_contributors) FROM daily_new dn WHERE dn.date <= d.date) as value\nFROM daily_metrics d\nWHERE CAST(strftime('%s', d.date) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', d.date) as INTEGER) <= $__to / 1000\nGROUP BY d.date\nORDER BY d.date ASC",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Cumulative External Contributors (All Time)",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
+      "type": "timeseries"
     }
   ],
   "preload": false,
@@ -10046,5 +10601,5 @@
   "timezone": "browser",
   "title": "Strands Health",
   "uid": "adj9pgt",
-  "version": 2
+  "version": 3
 }
