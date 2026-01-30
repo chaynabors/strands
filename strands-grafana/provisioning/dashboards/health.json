@@ -29,6 +29,399 @@
         "x": 0,
         "y": 0
       },
+      "id": 200,
+      "panels": [],
+      "title": "Key Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Current count of open pull requests",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "id": 201,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as value FROM pull_requests WHERE state = 'open' AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as value FROM pull_requests WHERE state = 'open' AND repo IN (${repo:singlequote})",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Open PRs",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Average hours from PR open to merge (last 14 days)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          },
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "id": 202,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(AVG((julianday(merged_at) - julianday(created_at)) * 24), 1) as value\nFROM pull_requests \nWHERE merged_at IS NOT NULL \n  AND date(merged_at) >= date('now', '-14 days')\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(AVG((julianday(merged_at) - julianday(created_at)) * 24), 1) as value\nFROM pull_requests \nWHERE merged_at IS NOT NULL \n  AND date(merged_at) >= date('now', '-14 days')\n  AND repo IN (${repo:singlequote})",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Avg Merge Time",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Percentage of merged PRs from external contributors (last 30 days)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "id": 203,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT ROUND(100.0 * SUM(CASE WHEN json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') THEN 1 ELSE 0 END) / COUNT(*), 1) as value\nFROM pull_requests \nWHERE merged_at IS NOT NULL \n  AND date(merged_at) >= date('now', '-30 days')\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')",
+          "queryType": "table",
+          "rawQueryText": "SELECT ROUND(100.0 * SUM(CASE WHEN json_extract(data, '$.author_association') NOT IN ('OWNER', 'MEMBER', 'COLLABORATOR') THEN 1 ELSE 0 END) / COUNT(*), 1) as value\nFROM pull_requests \nWHERE merged_at IS NOT NULL \n  AND date(merged_at) >= date('now', '-30 days')\n  AND repo IN (${repo:singlequote})",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Community PR %",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Unique PR authors in the last 7 days",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "id": 204,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(DISTINCT author) as value\nFROM pull_requests \nWHERE date(created_at) >= date('now', '-7 days')\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(DISTINCT author) as value\nFROM pull_requests \nWHERE date(created_at) >= date('now', '-7 days')\n  AND repo IN (${repo:singlequote})",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Active Contributors",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "PRs merged in the last 7 days",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 205,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as value\nFROM pull_requests \nWHERE merged_at IS NOT NULL \n  AND date(merged_at) >= date('now', '-7 days')\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as value\nFROM pull_requests \nWHERE merged_at IS NOT NULL \n  AND date(merged_at) >= date('now', '-7 days')\n  AND repo IN (${repo:singlequote})",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Merged This Week",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Open PRs with no activity in 7+ days",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 206,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "queryText": "SELECT COUNT(*) as value\nFROM pull_requests \nWHERE state = 'open'\n  AND date(updated_at) < date('now', '-7 days')\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')",
+          "queryType": "table",
+          "rawQueryText": "SELECT COUNT(*) as value\nFROM pull_requests \nWHERE state = 'open'\n  AND date(updated_at) < date('now', '-7 days')\n  AND repo IN (${repo:singlequote})",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Stale PRs",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
       "id": 100,
       "panels": [],
       "title": "Volume",
@@ -40,7 +433,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 23
       },
       "id": 101,
       "panels": [],
@@ -53,7 +446,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 40
       },
       "id": 102,
       "panels": [],
@@ -66,7 +459,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 57
       },
       "id": 103,
       "panels": [],
@@ -965,7 +1358,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 15
       },
       "id": 11,
       "options": {
@@ -1897,7 +2290,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 58
       },
       "id": 12,
       "options": {
@@ -2829,7 +3222,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 58
       },
       "id": 10,
       "options": {
@@ -3099,7 +3492,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 60
+        "y": 66
       },
       "id": 18,
       "options": {
@@ -3126,7 +3519,7 @@
           ]
         }
       ],
-      "title": "External Contribution Rate (30-Day Avg)",
+      "title": "Community PR Share (30-Day Avg)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -4016,7 +4409,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 66
       },
       "id": 9,
       "options": {
@@ -4054,7 +4447,7 @@
           ]
         }
       ],
-      "title": "PRs Closed Without Merging (Daily)",
+      "title": "Rejected PRs (Daily)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -4284,7 +4677,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 32
       },
       "id": 19,
       "options": {
@@ -4321,7 +4714,7 @@
           ]
         }
       ],
-      "title": "Review Bottleneck (PRs >48h to First Review)",
+      "title": "Slow Reviews (>48h Wait)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -4564,7 +4957,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 41
       },
       "id": 13,
       "options": {
@@ -4830,7 +5223,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 43
+        "y": 49
       },
       "id": 14,
       "options": {
@@ -4857,7 +5250,7 @@
           ]
         }
       ],
-      "title": "Code Churn (7-Day Avg, <10k)",
+      "title": "Daily Code Churn (7-Day Avg)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -4867,7 +5260,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "7-day rolling average of total lines changed per day (additions + deletions). Filters out days with >10,000 line changes to exclude anomalies like generated code, large imports, or bulk formatting changes."
+      "description": "7-day rolling average of total lines changed per day (additions + deletions). Days with >10,000 lines are filtered out to exclude bulk changes like generated code or large imports."
     },
     {
       "datasource": {
@@ -5102,7 +5495,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 41
       },
       "id": 15,
       "options": {
@@ -5368,7 +5761,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 43
+        "y": 49
       },
       "id": 16,
       "options": {
@@ -6285,7 +6678,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 1
+        "y": 7
       },
       "id": 2,
       "options": {
@@ -7213,7 +7606,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 15
       },
       "id": 3,
       "options": {
@@ -8141,7 +8534,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 1
+        "y": 7
       },
       "id": 1,
       "options": {
@@ -9087,7 +9480,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 32
       },
       "id": 7,
       "options": {
@@ -9116,7 +9509,7 @@
           ]
         }
       ],
-      "title": "Responsiveness & Resolution",
+      "title": "Time to First Response (Hours)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -9524,7 +9917,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 24
       },
       "id": 17,
       "options": {
@@ -9959,7 +10352,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 24
       },
       "id": 20,
       "options": {
@@ -10004,7 +10397,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 68
+        "y": 74
       },
       "id": 104,
       "panels": [],
@@ -10103,7 +10496,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 69
+        "y": 75
       },
       "id": 21,
       "options": {
@@ -10216,7 +10609,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 69
+        "y": 75
       },
       "id": 22,
       "options": {
@@ -10325,7 +10718,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 77
+        "y": 83
       },
       "id": 23,
       "options": {
@@ -10410,7 +10803,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 77
+        "y": 83
       },
       "id": 24,
       "options": {
@@ -10512,7 +10905,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 87
+        "y": 93
       },
       "id": 25,
       "options": {
@@ -10552,6 +10945,173 @@
         }
       ],
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Distribution of PR sizes by lines changed. Smaller PRs are easier to review and less likely to contain bugs.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Number of PRs",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "XS (1-10)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "S (11-50)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "M (51-200)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "L (201-500)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "XL (500+)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 207,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.8,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "vertical",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100
+      },
+      "targets": [
+        {
+          "queryText": "SELECT \n  CASE \n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 10 THEN 'XS (1-10)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 50 THEN 'S (11-50)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 200 THEN 'M (51-200)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 500 THEN 'L (201-500)'\n    ELSE 'XL (500+)'\n  END as size_category,\n  COUNT(*) as count\nFROM pull_requests\nWHERE merged_at IS NOT NULL\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) <= $__to / 1000\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\nGROUP BY size_category\nORDER BY \n  CASE size_category\n    WHEN 'XS (1-10)' THEN 1\n    WHEN 'S (11-50)' THEN 2\n    WHEN 'M (51-200)' THEN 3\n    WHEN 'L (201-500)' THEN 4\n    ELSE 5\n  END",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  CASE \n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 10 THEN 'XS (1-10)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 50 THEN 'S (11-50)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 200 THEN 'M (51-200)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 500 THEN 'L (201-500)'\n    ELSE 'XL (500+)'\n  END as size_category,\n  COUNT(*) as count\nFROM pull_requests\nWHERE merged_at IS NOT NULL\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) <= $__to / 1000\n  AND repo IN (${repo:singlequote})\nGROUP BY size_category\nORDER BY \n  CASE size_category\n    WHEN 'XS (1-10)' THEN 1\n    WHEN 'S (11-50)' THEN 2\n    WHEN 'M (51-200)' THEN 3\n    WHEN 'L (201-500)' THEN 4\n    ELSE 5\n  END",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "PR Size Distribution",
+      "type": "barchart"
     }
   ],
   "preload": false,
@@ -10601,5 +11161,5 @@
   "timezone": "browser",
   "title": "Strands Health",
   "uid": "adj9pgt",
-  "version": 3
+  "version": 4
 }
