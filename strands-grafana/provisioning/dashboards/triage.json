@@ -195,7 +195,8 @@
         }
       ],
       "title": "Team PRs",
-      "type": "table"
+      "type": "table",
+      "description": "Current open PRs. Point-in-time snapshot - not affected by date range. "
     },
     {
       "datasource": {
@@ -375,7 +376,8 @@
         }
       ],
       "title": "Community PRs",
-      "type": "table"
+      "type": "table",
+      "description": "Current open PRs. Point-in-time snapshot - not affected by date range. "
     },
     {
       "datasource": {
@@ -515,7 +517,8 @@
         }
       ],
       "title": "Untriaged Issues (No Milestone)",
-      "type": "table"
+      "type": "table",
+      "description": "Current open issues without a milestone. Point-in-time snapshot - not affected by date range."
     },
     {
       "datasource": {
@@ -635,7 +638,8 @@
         }
       ],
       "title": "Top Upvoted Issues",
-      "type": "table"
+      "type": "table",
+      "description": "Current open issues sorted by upvotes. Point-in-time snapshot - not affected by date range."
     },
     {
       "datasource": {
@@ -751,14 +755,15 @@
         }
       ],
       "title": "Most Discussed Issues",
-      "type": "table"
+      "type": "table",
+      "description": "Current open issues sorted by comment count. Point-in-time snapshot - not affected by date range."
     },
     {
       "datasource": {
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Open PRs with no activity in the last 7 days. These may need attention or a follow-up.",
+      "description": "Current open PRs with no activity in 7+ days. Point-in-time snapshot.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -897,7 +902,7 @@
           "refId": "A"
         }
       ],
-      "title": "\u26a0\ufe0f Stale PRs (No Activity in 7+ Days)",
+      "title": "\u26a0\ufe0f Stale PRs (7d+ No Activity)",
       "type": "table"
     },
     {
@@ -905,7 +910,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Open PRs from contributors who have never had a PR merged. These deserve extra attention to welcome new community members.",
+      "description": "Current open PRs from first-time contributors. Point-in-time snapshot - not affected by date range.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1039,6 +1044,122 @@
       ],
       "title": "\ud83c\udf1f First-Time Contributors (Needs Welcome!)",
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "P2289B60D79A89B0C"
+      },
+      "description": "Current open Dependabot PRs. Point-in-time snapshot - not affected by date range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Title"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open on GitHub",
+                    "url": "${__data.fields.URL}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "URL"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Days Open"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Repo"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 22,
+        "x": 1,
+        "y": 48
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Days Open"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "queryText": "SELECT \n  p.repo as \"Repo\",\n  p.title as \"Title\",\n  json_extract(p.data, '$.html_url') as \"URL\",\n  CAST((julianday('now') - julianday(p.created_at)) as INTEGER) as \"Days Open\"\nFROM pull_requests p\nWHERE p.state = 'open'\n  AND (p.author LIKE '%[bot]%' OR p.author = 'dependabot')\n  AND p.repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\nORDER BY \"Days Open\" DESC",
+          "queryType": "table",
+          "rawQueryText": "SELECT \n  p.repo as \"Repo\",\n  p.title as \"Title\",\n  json_extract(p.data, '$.html_url') as \"URL\",\n  CAST((julianday('now') - julianday(p.created_at)) as INTEGER) as \"Days Open\"\nFROM pull_requests p\nWHERE p.state = 'open'\n  AND (p.author LIKE '%[bot]%' OR p.author = 'dependabot')\n  AND p.repo IN (${repo:singlequote})\nORDER BY \"Days Open\" DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "\ud83e\udd16 Dependabot PRs",
+      "type": "table"
     }
   ],
   "preload": false,
@@ -1077,5 +1198,5 @@
   "timezone": "browser",
   "title": "Strands Triage",
   "uid": "advqxqk",
-  "version": 5
+  "version": 7
 }

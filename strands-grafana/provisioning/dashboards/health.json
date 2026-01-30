@@ -39,7 +39,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Current count of open pull requests",
+      "description": "Current count of open pull requests. This is a point-in-time snapshot, not affected by date range.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -94,7 +94,7 @@
           ]
         }
       ],
-      "title": "Open PRs",
+      "title": "Open PRs (Current)",
       "type": "stat"
     },
     {
@@ -102,7 +102,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Average hours from PR open to merge (last 14 days)",
+      "description": "Average hours from PR open to merge. Fixed 14-day lookback - does not change with date picker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -158,7 +158,7 @@
           ]
         }
       ],
-      "title": "Avg Merge Time",
+      "title": "Avg Merge Time (14d)",
       "type": "stat"
     },
     {
@@ -166,7 +166,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Percentage of merged PRs from external contributors (last 30 days)",
+      "description": "Percentage of merged PRs from community contributors. Fixed 30-day lookback - does not change with date picker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -222,7 +222,7 @@
           ]
         }
       ],
-      "title": "Community PR %",
+      "title": "Community PR % (30d)",
       "type": "stat"
     },
     {
@@ -230,7 +230,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Unique PR authors in the last 7 days",
+      "description": "Unique PR authors in the last 7 days. Fixed lookback - does not change with date picker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -285,7 +285,7 @@
           ]
         }
       ],
-      "title": "Active Contributors",
+      "title": "Active Contributors (7d)",
       "type": "stat"
     },
     {
@@ -293,7 +293,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "PRs merged in the last 7 days",
+      "description": "PRs merged in the last 7 days. Fixed lookback - does not change with date picker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -348,7 +348,7 @@
           ]
         }
       ],
-      "title": "Merged This Week",
+      "title": "Merged (7d)",
       "type": "stat"
     },
     {
@@ -356,7 +356,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Open PRs with no activity in 7+ days",
+      "description": "Open PRs with no activity in 7+ days. Fixed threshold - does not change with date picker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -411,7 +411,7 @@
           ]
         }
       ],
-      "title": "Stale PRs",
+      "title": "Stale PRs (7d+)",
       "type": "stat"
     },
     {
@@ -1387,7 +1387,7 @@
           ]
         }
       ],
-      "title": "Total Open PRs",
+      "title": "Total Open PRs (Current)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -1397,7 +1397,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "Current count of open pull requests across selected repositories. Note: GitHub Issues sync is broken, so this only tracks PRs."
+      "description": "Current count of open pull requests across selected repositories. Point-in-time snapshot."
     },
     {
       "datasource": {
@@ -2319,7 +2319,7 @@
           ]
         }
       ],
-      "title": "Total Stars",
+      "title": "Total Stars (Current)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -2329,7 +2329,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "Cumulative count of GitHub stars across selected repositories, tracked over time."
+      "description": "Current cumulative count of GitHub stars. Point-in-time snapshot."
     },
     {
       "datasource": {
@@ -3251,7 +3251,7 @@
           ]
         }
       ],
-      "title": "Weekly Active External Contributors",
+      "title": "Weekly Active Community Contributors",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -3261,7 +3261,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "Count of unique external contributors (non-team members: not OWNER/MEMBER/COLLABORATOR) who created PRs in the rolling 7-day window ending on each date."
+      "description": "\u23f1\ufe0f Follows date range. Count of unique community contributors who created PRs in the rolling 7-day window ending on each date."
     },
     {
       "datasource": {
@@ -3519,7 +3519,7 @@
           ]
         }
       ],
-      "title": "Community PR Share (30-Day Avg)",
+      "title": "Community PR Share (30-Day Rolling)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -3529,7 +3529,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "30-day rolling average percentage of merged PRs that were authored by external contributors (non-team members)."
+      "description": "\u23f1\ufe0f Follows date range. 30-day rolling average percentage of merged PRs from community contributors."
     },
     {
       "datasource": {
@@ -4457,7 +4457,7 @@
         }
       ],
       "type": "barchart",
-      "description": "Daily count of PRs closed without being merged (rejected PRs), split by Internal (team) vs External (community) contributors."
+      "description": "\u23f1\ufe0f Follows date range. Daily count of PRs closed without being merged."
     },
     {
       "datasource": {
@@ -4724,7 +4724,7 @@
         }
       ],
       "type": "barchart",
-      "description": "Daily count of PRs that waited more than 48 hours to receive their first review. Date represents when the first review was received."
+      "description": "\u23f1\ufe0f Follows date range. Daily count of PRs that waited >48 hours for first review."
     },
     {
       "datasource": {
@@ -4984,7 +4984,7 @@
           ]
         }
       ],
-      "title": "CI Failure Rate (7-Day Avg)",
+      "title": "CI Failure Rate (7-Day Rolling)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -4994,7 +4994,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "7-day rolling average of CI failure rate: (failed CI runs / total CI runs) \u00d7 100%. Shows percentage of CI runs that failed."
+      "description": "\u23f1\ufe0f Follows date range. 7-day rolling average of CI failure rate."
     },
     {
       "datasource": {
@@ -5250,7 +5250,7 @@
           ]
         }
       ],
-      "title": "Daily Code Churn (7-Day Avg)",
+      "title": "Code Churn (7-Day Rolling)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -5260,7 +5260,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "7-day rolling average of total lines changed per day (additions + deletions). Days with >10,000 lines are filtered out to exclude bulk changes like generated code or large imports."
+      "description": "\u23f1\ufe0f Follows date range. 7-day rolling average of lines changed per day. Days >10k lines filtered out."
     },
     {
       "datasource": {
@@ -5522,7 +5522,7 @@
           ]
         }
       ],
-      "title": "PR Acceptance Rate (30-Day Avg)",
+      "title": "PR Acceptance Rate (30-Day Rolling)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -5532,7 +5532,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "30-day rolling average of PR acceptance rate: (PRs merged / PRs opened) \u00d7 100%. Shows what percentage of opened PRs ultimately get merged."
+      "description": "\u23f1\ufe0f Follows date range. 30-day rolling average of (PRs merged / PRs opened) \u00d7 100%."
     },
     {
       "datasource": {
@@ -5788,7 +5788,7 @@
           ]
         }
       ],
-      "title": "Backlog Growth (Week-over-Week)",
+      "title": "Backlog Growth (WoW)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -5798,7 +5798,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "Week-over-week change in open PR count (current week minus previous week). Positive values mean backlog is growing, negative values mean it's shrinking."
+      "description": "\u23f1\ufe0f Follows date range. Week-over-week change in open PR count."
     },
     {
       "datasource": {
@@ -6726,7 +6726,7 @@
         }
       ],
       "type": "barchart",
-      "description": "Daily count of new GitHub Issues opened. Source: daily_metrics table."
+      "description": "\u23f1\ufe0f Follows date range. Daily count of new GitHub Issues opened."
     },
     {
       "datasource": {
@@ -7654,7 +7654,7 @@
         }
       ],
       "type": "barchart",
-      "description": "Daily count of GitHub Issues closed. Source: daily_metrics table."
+      "description": "\u23f1\ufe0f Follows date range. Daily count of GitHub Issues closed."
     },
     {
       "datasource": {
@@ -8586,7 +8586,7 @@
         }
       ],
       "type": "barchart",
-      "description": "Daily count of pull requests successfully merged. Source: daily_metrics table."
+      "description": "\u23f1\ufe0f Follows date range. Daily count of pull requests merged."
     },
     {
       "datasource": {
@@ -9509,7 +9509,7 @@
           ]
         }
       ],
-      "title": "Time to First Response (Hours)",
+      "title": "Time to First Response",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -9519,7 +9519,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "Average time in hours from when an issue/PR is opened until it receives first response (comment or review). Shows how quickly the team responds to new items."
+      "description": "\u23f1\ufe0f Follows date range. Average hours until first response on issues/PRs."
     },
     {
       "datasource": {
@@ -9944,7 +9944,7 @@
           ]
         }
       ],
-      "title": "Cycle Time (PR Open \u2192 Merge, 14-Day Avg)",
+      "title": "Cycle Time (14-Day Rolling)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -9954,7 +9954,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "14-day rolling average of hours between PR creation and merge, split by Internal (team) vs External (community) contributors. Calculated from individual PR timestamps for granular accuracy."
+      "description": "\u23f1\ufe0f Follows date range. 14-day rolling average hours from PR open to merge, by contributor type."
     },
     {
       "datasource": {
@@ -10379,7 +10379,7 @@
           ]
         }
       ],
-      "title": "Time to First Review (14-Day Avg)",
+      "title": "Time to First Review (14-Day Rolling)",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -10389,7 +10389,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "14-day rolling average of hours between PR creation and first review (comment or review), split by Internal (team) vs External (community) contributors. Shows team responsiveness."
+      "description": "\u23f1\ufe0f Follows date range. 14-day rolling average hours until first PR review, by contributor type."
     },
     {
       "collapsed": false,
@@ -10409,7 +10409,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Daily count of new contributors (first-time in rolling 90 days) vs returning contributors who have contributed before.",
+      "description": "\u23f1\ufe0f Follows date range. Daily count of first-time vs returning contributors.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -10526,7 +10526,7 @@
           ]
         }
       ],
-      "title": "New vs Returning Contributors (Daily)",
+      "title": "New vs Returning Contributors",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -10542,7 +10542,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "30-day rolling retention rate: percentage of contributors from 30-60 days ago who also contributed in the last 30 days.",
+      "description": "\u23f1\ufe0f Follows date range. Percentage of contributors from 30-60 days ago who returned in last 30 days.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -10640,7 +10640,7 @@
           ]
         }
       ],
-      "title": "Contributor Retention Rate (30-Day Rolling)",
+      "title": "Contributor Retention Rate",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -10656,7 +10656,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Top external contributors by PR count in the selected time period, excluding bots.",
+      "description": "\u23f1\ufe0f Follows date range. Leaderboard of community contributors by PR count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -10751,7 +10751,7 @@
           ]
         }
       ],
-      "title": "Top External Contributors",
+      "title": "Top Community Contributors",
       "type": "table"
     },
     {
@@ -10759,7 +10759,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Unique external contributors per repository in the selected time period, excluding bots.",
+      "description": "\u23f1\ufe0f Follows date range. Community contributor count per repository.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -10849,7 +10849,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Cumulative count of unique first-time external contributors over time. Shows community growth trajectory.",
+      "description": "\u23f1\ufe0f Follows date range. Running total of first-time community contributors over time.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -10935,7 +10935,7 @@
           ]
         }
       ],
-      "title": "Cumulative External Contributors (All Time)",
+      "title": "Cumulative Community Contributors",
       "transformations": [
         {
           "id": "prepareTimeSeries",
@@ -10945,173 +10945,6 @@
         }
       ],
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "frser-sqlite-datasource",
-        "uid": "P2289B60D79A89B0C"
-      },
-      "description": "Distribution of PR sizes by lines changed. Smaller PRs are easier to review and less likely to contain bugs.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Number of PRs",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "XS (1-10)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "S (11-50)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "M (51-200)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "L (201-500)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "XL (500+)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 12
-      },
-      "id": 207,
-      "options": {
-        "barRadius": 0.1,
-        "barWidth": 0.8,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [
-            "sum"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "orientation": "vertical",
-        "showValue": "always",
-        "stacking": "none",
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 100
-      },
-      "targets": [
-        {
-          "queryText": "SELECT \n  CASE \n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 10 THEN 'XS (1-10)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 50 THEN 'S (11-50)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 200 THEN 'M (51-200)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 500 THEN 'L (201-500)'\n    ELSE 'XL (500+)'\n  END as size_category,\n  COUNT(*) as count\nFROM pull_requests\nWHERE merged_at IS NOT NULL\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) <= $__to / 1000\n  AND repo IN ('agent-builder','agent-sop','docs','evals','mcp-server','private-docs-staging','private-sdk-python-staging','private-sdk-typescript-staging','private-tools-staging','samples','sdk-python','sdk-typescript','strands-action','strandsagents.com','tools','.github','private-samples-staging','private-strands-action-staging')\nGROUP BY size_category\nORDER BY \n  CASE size_category\n    WHEN 'XS (1-10)' THEN 1\n    WHEN 'S (11-50)' THEN 2\n    WHEN 'M (51-200)' THEN 3\n    WHEN 'L (201-500)' THEN 4\n    ELSE 5\n  END",
-          "queryType": "table",
-          "rawQueryText": "SELECT \n  CASE \n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 10 THEN 'XS (1-10)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 50 THEN 'S (11-50)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 200 THEN 'M (51-200)'\n    WHEN (json_extract(data, '$.additions') + json_extract(data, '$.deletions')) <= 500 THEN 'L (201-500)'\n    ELSE 'XL (500+)'\n  END as size_category,\n  COUNT(*) as count\nFROM pull_requests\nWHERE merged_at IS NOT NULL\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) >= $__from / 1000\n  AND CAST(strftime('%s', date(merged_at)) as INTEGER) <= $__to / 1000\n  AND repo IN (${repo:singlequote})\nGROUP BY size_category\nORDER BY \n  CASE size_category\n    WHEN 'XS (1-10)' THEN 1\n    WHEN 'S (11-50)' THEN 2\n    WHEN 'M (51-200)' THEN 3\n    WHEN 'L (201-500)' THEN 4\n    ELSE 5\n  END",
-          "refId": "A",
-          "timeColumns": [
-            "time",
-            "ts"
-          ]
-        }
-      ],
-      "title": "PR Size Distribution",
-      "type": "barchart"
     }
   ],
   "preload": false,
@@ -11161,5 +10994,5 @@
   "timezone": "browser",
   "title": "Strands Health",
   "uid": "adj9pgt",
-  "version": 4
+  "version": 9
 }
