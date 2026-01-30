@@ -68,6 +68,30 @@ docker-compose up # or podman compose up
 # Navigate to http://localhost:3000
 ```
 
+## GitHub Action (Automated Updates)
+
+The repository includes a GitHub Action that runs daily at 6 AM UTC to sync GitHub data.
+
+### Required Secret
+
+Create a repository secret named `METRICS_PAT` containing a GitHub Personal Access Token with:
+- `repo` scope (for accessing repository data)
+- `read:org` scope (for organization membership)
+
+### Workflow
+
+The action (`.github/workflows/metrics.yaml`) runs:
+1. `sync` - Incrementally fetches new issues, PRs, commits, stars, and CI runs
+2. `sweep` - Garbage collection to mark deleted items
+3. Pushes updated `metrics.db` to the `live` branch
+
+### Manual Trigger
+
+Run manually via GitHub Actions UI or CLI:
+```bash
+gh workflow run metrics.yaml
+```
+
 ## License
 
 Licensed under Apache-2.0 OR MIT.
