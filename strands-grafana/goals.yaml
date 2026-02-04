@@ -1,0 +1,23 @@
+# Strands Project Goals Configuration
+# These thresholds appear as goal lines in Grafana dashboards
+# Edit values here and run `strands-metrics load-goals` to update
+#
+# NOTE: Only rate/percentage/time-based metrics have goals.
+# Count-based metrics (open PRs, contributors, etc.) are excluded
+# because they scale with the number of repos selected.
+
+goals:
+  # Time Metrics (hours) - lower is better
+  avg_merge_time_hours: 24            # Target: merge PRs within 24 hours
+  cycle_time_hours: 336                # Target cycle time (open to merge)
+  time_to_first_review_hours: 72       # Target: first review within 72 hours
+  time_to_first_response_hours: 24    # Target: first response within 24 hours
+
+  # Quality Metrics (percentages)
+  ci_failure_rate_percent: 30          # Target: less than 30% CI failures
+  pr_acceptance_rate_min: 60          # Min % of PRs that get merged (higher is better)
+
+  # Community Metrics (percentages)
+  community_pr_percent_min: 20        # Min % of PRs from community (higher is better)
+  community_share_percent_min: 15     # Min % of merged PRs from community
+  contributor_retention_min: 25       # Min % of contributors who return

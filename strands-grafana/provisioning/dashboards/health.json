@@ -102,7 +102,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Average hours from PR open to merge. Fixed 14-day lookback - does not change with date picker.",
+      "description": "Average hours from PR open to merge. Fixed 14-day lookback - does not change with date picker. Goal: 24h",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -113,8 +113,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "yellow",
+                "color": "green",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 19.200000000000003
+              },
+              {
+                "color": "red",
+                "value": 24.0
               }
             ]
           },
@@ -166,7 +174,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "Percentage of merged PRs from community contributors. Fixed 30-day lookback - does not change with date picker.",
+      "description": "Percentage of merged PRs from community contributors. Fixed 30-day lookback - does not change with date picker. Goal: 20%",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -177,8 +185,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 14.0
+              },
+              {
+                "color": "green",
+                "value": 20.0
               }
             ]
           },
@@ -241,7 +257,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "purple",
+                "color": "blue",
                 "value": null
               }
             ]
@@ -304,7 +320,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "blue",
                 "value": null
               }
             ]
@@ -367,7 +383,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "blue",
                 "value": null
               }
             ]
@@ -3485,6 +3501,39 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Goal (15%)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -3516,6 +3565,15 @@
           "timeColumns": [
             "time",
             "ts"
+          ]
+        },
+        {
+          "queryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'community_share_percent_min') as \"Goal (15%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'community_share_percent_min') as \"Goal (15%)\"",
+          "queryType": "table",
+          "rawQueryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'community_share_percent_min') as \"Goal (15%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'community_share_percent_min') as \"Goal (15%)\"",
+          "refId": "Goal",
+          "timeColumns": [
+            "time"
           ]
         }
       ],
@@ -4950,6 +5008,39 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Goal (5%)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -4981,6 +5072,15 @@
           "timeColumns": [
             "time",
             "ts"
+          ]
+        },
+        {
+          "queryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'ci_failure_rate_percent') as \"Goal (5%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'ci_failure_rate_percent') as \"Goal (5%)\"",
+          "queryType": "table",
+          "rawQueryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'ci_failure_rate_percent') as \"Goal (5%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'ci_failure_rate_percent') as \"Goal (5%)\"",
+          "refId": "Goal",
+          "timeColumns": [
+            "time"
           ]
         }
       ],
@@ -5488,6 +5588,39 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Goal (80%)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -5519,6 +5652,15 @@
           "timeColumns": [
             "time",
             "ts"
+          ]
+        },
+        {
+          "queryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'pr_acceptance_rate_min') as \"Goal (80%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'pr_acceptance_rate_min') as \"Goal (80%)\"",
+          "queryType": "table",
+          "rawQueryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'pr_acceptance_rate_min') as \"Goal (80%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'pr_acceptance_rate_min') as \"Goal (80%)\"",
+          "refId": "Goal",
+          "timeColumns": [
+            "time"
           ]
         }
       ],
@@ -9473,6 +9615,39 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Goal (24h)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -9506,6 +9681,15 @@
           "timeColumns": [
             "time",
             "ts"
+          ]
+        },
+        {
+          "queryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_response_hours') as \"Goal (24h)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_response_hours') as \"Goal (24h)\"",
+          "queryType": "table",
+          "rawQueryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_response_hours') as \"Goal (24h)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_response_hours') as \"Goal (24h)\"",
+          "refId": "Goal",
+          "timeColumns": [
+            "time"
           ]
         }
       ],
@@ -9910,6 +10094,39 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Goal (48h)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -9941,6 +10158,15 @@
           "timeColumns": [
             "time",
             "ts"
+          ]
+        },
+        {
+          "queryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'cycle_time_hours') as \"Goal (48h)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'cycle_time_hours') as \"Goal (48h)\"",
+          "queryType": "table",
+          "rawQueryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'cycle_time_hours') as \"Goal (48h)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'cycle_time_hours') as \"Goal (48h)\"",
+          "refId": "Goal",
+          "timeColumns": [
+            "time"
           ]
         }
       ],
@@ -10345,6 +10571,39 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Goal (8h)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -10376,6 +10635,15 @@
           "timeColumns": [
             "time",
             "ts"
+          ]
+        },
+        {
+          "queryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_review_hours') as \"Goal (8h)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_review_hours') as \"Goal (8h)\"",
+          "queryType": "table",
+          "rawQueryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_review_hours') as \"Goal (8h)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'time_to_first_review_hours') as \"Goal (8h)\"",
+          "refId": "Goal",
+          "timeColumns": [
+            "time"
           ]
         }
       ],
@@ -10603,7 +10871,41 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Goal (30%)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -10637,6 +10939,15 @@
           "timeColumns": [
             "time",
             "ts"
+          ]
+        },
+        {
+          "queryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'contributor_retention_min') as \"Goal (30%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'contributor_retention_min') as \"Goal (30%)\"",
+          "queryType": "table",
+          "rawQueryText": "SELECT $__from / 1000 as time, (SELECT value FROM goals WHERE metric = 'contributor_retention_min') as \"Goal (30%)\"\nUNION ALL\nSELECT $__to / 1000 as time, (SELECT value FROM goals WHERE metric = 'contributor_retention_min') as \"Goal (30%)\"",
+          "refId": "Goal",
+          "timeColumns": [
+            "time"
           ]
         }
       ],

@@ -1,6 +1,7 @@
 mod aggregates;
 mod client;
 mod db;
+mod goals;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -31,6 +32,14 @@ enum Commands {
     Sweep,
     /// Run raw SQL.
     Query { sql: String },
+    /// Load goals from YAML config file into the database.
+    LoadGoals {
+        /// Path to goals.yaml file
+        #[clap(default_value = "strands-grafana/goals.yaml")]
+        config_path: PathBuf,
+    },
+    /// List all configured goals.
+    ListGoals,
 }
 
 #[tokio::main]
@@ -42,6 +51,7 @@ async fn main() -> Result<()> {
 
     let args = Cli::parse();
     let mut conn = init_db(&args.db_path)?;
+    goals::init_goals_table(&conn)?;
 
     match args.command {
         Commands::Sync => {
@@ -111,6 +121,18 @@ async fn main() -> Result<()> {
                     row_values.push(text);
                 }
                 println!("{}", row_values.join(" | "));
+            }
+        }
+        Commands::LoadGoals { config_path } => {
+            let count = goals::load_goals(&conn, &config_path)?;
+            println!("Loaded {} goals from {:?}", count, config_path);
+        }
+        Commands::ListGoals => {
+            let all_goals = goals::list_goals(&conn)?;
+            println!("{:<40} | {}", "Metric", "Value");
+            println!("{}", "-".repeat(55));
+            for (metric, value) in all_goals {
+                println!("{:<40} | {}", metric, value);
             }
         }
     }
