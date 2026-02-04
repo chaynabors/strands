@@ -3277,7 +3277,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. Count of unique community contributors who created PRs in the rolling 7-day window ending on each date."
+      "description": "⏱️ Follows date range. Count of unique community contributors who created PRs in the rolling 7-day window ending on each date."
     },
     {
       "datasource": {
@@ -3587,7 +3587,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. 30-day rolling average percentage of merged PRs from community contributors."
+      "description": "⏱️ Follows date range. 30-day rolling average percentage of merged PRs from community contributors."
     },
     {
       "datasource": {
@@ -4515,7 +4515,7 @@
         }
       ],
       "type": "barchart",
-      "description": "\u23f1\ufe0f Follows date range. Daily count of PRs closed without being merged."
+      "description": "⏱️ Follows date range. Daily count of PRs closed without being merged."
     },
     {
       "datasource": {
@@ -4782,7 +4782,7 @@
         }
       ],
       "type": "barchart",
-      "description": "\u23f1\ufe0f Follows date range. Daily count of PRs that waited >48 hours for first review."
+      "description": "⏱️ Follows date range. Daily count of PRs that waited >48 hours for first review."
     },
     {
       "datasource": {
@@ -5094,7 +5094,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. 7-day rolling average of CI failure rate."
+      "description": "⏱️ Follows date range. 7-day rolling average of CI failure rate."
     },
     {
       "datasource": {
@@ -5360,7 +5360,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. 7-day rolling average of lines changed per day. Days >10k lines filtered out."
+      "description": "⏱️ Follows date range. 7-day rolling average of lines changed per day. Days >10k lines filtered out."
     },
     {
       "datasource": {
@@ -5674,7 +5674,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. 30-day rolling average of (PRs merged / PRs opened) \u00d7 100%."
+      "description": "⏱️ Follows date range. 30-day rolling average of (PRs merged / PRs opened) × 100%."
     },
     {
       "datasource": {
@@ -5940,7 +5940,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. Week-over-week change in open PR count."
+      "description": "⏱️ Follows date range. Week-over-week change in open PR count."
     },
     {
       "datasource": {
@@ -6868,7 +6868,7 @@
         }
       ],
       "type": "barchart",
-      "description": "\u23f1\ufe0f Follows date range. Daily count of new GitHub Issues opened."
+      "description": "⏱️ Follows date range. Daily count of new GitHub Issues opened."
     },
     {
       "datasource": {
@@ -7796,7 +7796,7 @@
         }
       ],
       "type": "barchart",
-      "description": "\u23f1\ufe0f Follows date range. Daily count of GitHub Issues closed."
+      "description": "⏱️ Follows date range. Daily count of GitHub Issues closed."
     },
     {
       "datasource": {
@@ -8728,7 +8728,7 @@
         }
       ],
       "type": "barchart",
-      "description": "\u23f1\ufe0f Follows date range. Daily count of pull requests merged."
+      "description": "⏱️ Follows date range. Daily count of pull requests merged."
     },
     {
       "datasource": {
@@ -9703,7 +9703,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. Average hours until first response on issues/PRs."
+      "description": "⏱️ Follows date range. Average hours until first response on issues/PRs."
     },
     {
       "datasource": {
@@ -10180,7 +10180,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. 14-day rolling average hours from PR open to merge, by contributor type."
+      "description": "⏱️ Follows date range. 14-day rolling average hours from PR open to merge, by contributor type."
     },
     {
       "datasource": {
@@ -10657,7 +10657,7 @@
         }
       ],
       "type": "timeseries",
-      "description": "\u23f1\ufe0f Follows date range. 14-day rolling average hours until first PR review, by contributor type."
+      "description": "⏱️ Follows date range. 14-day rolling average hours until first PR review, by contributor type."
     },
     {
       "collapsed": false,
@@ -10677,7 +10677,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "\u23f1\ufe0f Follows date range. Daily count of first-time vs returning contributors.",
+      "description": "⏱️ Follows date range. Daily count of first-time vs returning contributors.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -10810,7 +10810,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "\u23f1\ufe0f Follows date range. Percentage of contributors from 30-60 days ago who returned in last 30 days.",
+      "description": "⏱️ Follows date range. Percentage of contributors from 30-60 days ago who returned in last 30 days.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -10967,7 +10967,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "\u23f1\ufe0f Follows date range. Leaderboard of community contributors by PR count.",
+      "description": "⏱️ Follows date range. Leaderboard of community contributors by PR count.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -11070,7 +11070,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "\u23f1\ufe0f Follows date range. Community contributor count per repository.",
+      "description": "⏱️ Follows date range. Community contributor count per repository.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -11160,7 +11160,7 @@
         "type": "frser-sqlite-datasource",
         "uid": "P2289B60D79A89B0C"
       },
-      "description": "\u23f1\ufe0f Follows date range. Running total of first-time community contributors over time.",
+      "description": "⏱️ Follows date range. Running total of first-time community contributors over time.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -12004,7 +12004,8 @@
             "docs",
             "sdk-python",
             "sdk-typescript",
-            "tools"
+            "tools",
+            "evals"
           ],
           "value": [
             "agent-builder",
@@ -12012,7 +12013,8 @@
             "docs",
             "sdk-python",
             "sdk-typescript",
-            "tools"
+            "tools",
+            "evals"
           ]
         },
         "definition": "SELECT DISTINCT repo FROM daily_metrics",
@@ -12035,7 +12037,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Strands Health",
+  "title": "Overview",
   "uid": "adj9pgt",
   "version": 10
 }
