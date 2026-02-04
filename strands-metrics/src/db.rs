@@ -188,5 +188,23 @@ pub fn init_db<P: AsRef<Path>>(path: P) -> Result<Connection> {
         [],
     )?;
 
+    // Package download tracking
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS package_downloads (
+            date TEXT NOT NULL,
+            package TEXT NOT NULL,
+            registry TEXT NOT NULL,
+            version TEXT,
+            downloads INTEGER DEFAULT 0,
+            PRIMARY KEY (date, package, registry, version)
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_downloads_package_date ON package_downloads(package, date)",
+        [],
+    )?;
+
     Ok(conn)
 }

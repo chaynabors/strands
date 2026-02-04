@@ -26,3 +26,9 @@ target
 # Added by cargo
 
 /target
+
+# Backup files
+*.backup
+
+# SQLite databases in wrong locations
+strands-grafana/provisioning/dashboards/metrics.db
