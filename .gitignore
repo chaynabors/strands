@@ -17,7 +17,6 @@ __pycache__/
 bin/
 build/
 strands-kt/lib/src/main/kotlin/uniffi/
-demo/
 dist/
 node_modules/
 target/
