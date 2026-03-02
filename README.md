@@ -1,7 +1,5 @@
 # Strands SDK: Polyglot architecture proposal
 
-## Index
-
 1. [Executive summary](#executive-summary)
 1. [Implementation](#implementation)
 1. [Results](#results)
@@ -15,6 +13,7 @@
 1. [Appendix E: On-disk size analysis](#appendix-e-on-disk-size-analysis)
 1. [Appendix F: Performance analysis](#appendix-f-performance-analysis)
 1. [Appendix G: Test status](#appendix-g-test-status)
+1. [Appendix H: Delivery estimate](#appendix-h-delivery-estimate)
 
 ## Executive summary
 
@@ -152,7 +151,9 @@ No. The polyglot Python wrapper replaces the internals, not the API. Users see t
 
 **Will development be harder?**
 
-Yes. The build pipeline has more layers, the WASM boundary adds indirection when debugging, and the toolchain is less familiar to the team. These are real costs. The return is that every feature ships to every language once, every bug is fixed once, and the WIT contract catches drift at compile time instead of in production. Today the team maintains two independent runtimes. At three languages, that is three. This architecture keeps it at one regardless of how many languages we support. The complexity moves from multiplying work across codebases to learning a deeper but singular stack.
+Yes. Today our team spends more time on maintainance than development. This architecture aims to flip that. The build pipeline has more layers, the WASM boundary adds indirection when debugging, and the toolchain is new to the team. These are real costs. The return is that every feature ships to every language once, every bug is fixed once, and the WIT contract catches drift at compile time instead of in production.
+
+Today the team maintains two independent runtimes. At three languages, that is three. This architecture implies one implementation regardless of how many languages we support. The complexity moves from multiplying work across codebases to learning a deeper, more singular stack.
 
 **What happens when the upstream Python SDK ships a feature we don't have?**
 
@@ -161,6 +162,12 @@ If the feature is already in the TypeScript SDK, it may work through WASM immedi
 **Why Rust? Who on the team knows Rust?**
 
 Rust is required because the wasmtime C API does not expose WASI HTTP, and because JIT compilation of WASM artifacts is too slow. The Rust layer is ~1,500 lines and changes infrequently. Sometimes features need routing through the Rust host, those features will be implemented in every language we support, but most development will happen in TypeScript.
+
+**How long will this take?**
+
+> This is a ballpark estimate, not a commitment. The team has to agree on an approach before we can commit to timelines.
+
+Roughly 14-18 person-weeks to reach full feature parity, pass all upstream integration tests, and release Python + TypeScript 2.0. With 3-4 engineers that is 6-8 calendar weeks. Beyond 4 engineers the gains are marginal because the remaining work has dependencies between layers. [[H]](#appendix-h-delivery-estimate)
 
 **How do you debug across the WASM boundary?**
 
@@ -975,3 +982,99 @@ Of the 106 collectable tests today: **54 pass, 51 fail, 1 xfail.**
 | `test_summarizing_conversation_manager_integration`                                             | NOT COLLECTED | `SummarizingConversationManager` — no TS SDK equivalent                                                         |
 | `tools/executors/test_concurrent`                                                               | NOT COLLECTED | `strands.tools.executors` — no TS SDK equivalent                                                                |
 | `tools/executors/test_sequential`                                                               | NOT COLLECTED | `strands.tools.executors` — no TS SDK equivalent                                                                |
+
+## Appendix H: Delivery estimate
+
+Rough approximations for reaching Python + TypeScript 2.0 release, closing the test gap, and shipping additional languages. ~14-18 person-weeks of unique effort. 6-8 calendar weeks with 3-4 engineers.
+
+### Historical velocity
+
+The TypeScript SDK went from zero to 13,009 lines of production source in 5.3 months (Sep 2025 to Feb 2026). 224 commits across 72 active development days, primarily driven by 2 engineers.
+
+| Period                     | Net lines added  | Commits | Active days   | Lines/active day |
+| -------------------------- | ---------------- | ------- | ------------- | ---------------- |
+| Oct 2025 (bootstrap)       | +8,451           | 37      | ~14           | ~604             |
+| Nov 2025 (peak)            | +9,038           | 81      | ~25           | ~362             |
+| Dec 2025 (stabilization)   | +5,113           | 50      | ~15           | ~341             |
+| Jan 2026 (maintenance)     | +208             | 23      | ~8            | ~26              |
+| Feb 2026 (polyglot sprint) | +8,947           | 28      | ~18           | ~497             |
+| **Steady state avg**       | **~6,000/month** |         | **~14/month** | **~441**         |
+
+Two engineers produced ~6,000 net lines per calendar month at steady state. Peak output was ~9,000 lines in a single month.
+
+### Workstream 1: TypeScript parity (~10,000 lines)
+
+The investment from [[B]](#appendix-b-line-count-projections) that makes every language wrapper ~1,600 lines instead of ~13,750.
+
+| Work item                        | Estimated lines | Parallelizable      |
+| -------------------------------- | --------------- | ------------------- |
+| 7 model providers                | ~3,000          | Yes, per-provider   |
+| Bidi (WebSocket/audio)           | ~3,000          | Yes                 |
+| A2A protocol                     | ~600            | Yes                 |
+| Telemetry (OTel bridge)          | ~1,000          | Yes                 |
+| Tool executors                   | ~350            | Yes                 |
+| Steering                         | ~600            | Yes                 |
+| Summarizing conversation manager | ~250            | Yes                 |
+| Multiagent buildout              | ~700            | Partially           |
+| Bridge + WIT additions           | ~500            | After TS work lands |
+
+At historical steady state (6,000 lines/month with 2 engineers), this is ~1.7 calendar months. Model providers and bidi are the largest items and can be worked in parallel.
+
+Estimate: 6-8 person-weeks of TypeScript work.
+
+### Workstream 2: Close the test gap (52 failing tests)
+
+| Category           | Tests | Where the fix lives                    | Complexity                             | Effort |
+| ------------------ | ----- | -------------------------------------- | -------------------------------------- | ------ |
+| Guardrails         | 13    | TS SDK + WIT + bridge + wrapper        | New config path end-to-end             | 2-3 pw |
+| Interrupts         | 13    | TS SDK + WIT + bridge + host + wrapper | New runtime protocol (pause/resume)    | 3-4 pw |
+| MCP remaining      | 7     | Python wrapper (5), bridge (2)         | Wiring + small features                | 1 pw   |
+| Bedrock features   | 6     | TS SDK + bridge (4), wrapper (2)       | New content block mappings             | 1 pw   |
+| Session stubs      | 5     | Python wrapper only                    | Pure Python (file + S3 persistence)    | 1 pw   |
+| S3 locations       | 3     | Python `_conversions.py`               | Field name remapping                   | 0.5 pw |
+| Cache points       | 2     | Python wrapper                         | Wire callback_handler to stream events | 0.5 pw |
+| Lifecycle ordering | 1     | WASM bridge                            | Finer-grained event yielding           | 0.5 pw |
+| Thread context     | 1     | Python wrapper                         | Propagate contextvars                  | 0.5 pw |
+| Trivial (2 items)  | 2     | Test config / non-deterministic        | May not need code changes              | 0 pw   |
+
+The two large items (guardrails + interrupts) account for half the failures and most of the effort. Guardrails overlaps with TS parity work. Interrupts is genuinely new protocol design.
+
+Estimate: 9-11 person-weeks total. Significant overlap with workstream 1. Guardrails, Bedrock features, and lifecycle ordering are part of the same TS/bridge work. Roughly 5 person-weeks of test fix work is subsumed by workstream 1.
+
+### Workstream 3: Additional languages
+
+Each language wrapper is ~1,400 lines of glue after TS parity.
+
+| Language   | Effort      | Notes                                   |
+| ---------- | ----------- | --------------------------------------- |
+| Kotlin     | Done        | Validated the ~1,400 line projection    |
+| Swift      | 2-3 pw      | UniFFI bindings, idiomatic API, testing |
+| Additional | 2-3 pw each | Same pattern, diminishing unknowns      |
+
+Depends on workstream 1 for full value but can start earlier on the subset of features that already work.
+
+### Total
+
+| Phase                     | Person-weeks  | Can parallelize across                                                |
+| ------------------------- | ------------- | --------------------------------------------------------------------- |
+| TS parity + bridge work   | 6-8           | 3-4 engineers (model providers, bidi, A2A, telemetry are independent) |
+| Test gap (net of overlap) | 4-6           | 2-3 engineers (guardrails, interrupts, Python fixes are independent)  |
+| Integration, CI, polish   | 2-3           | 1-2 engineers                                                         |
+| **Total unique effort**   | **~14-18 pw** |                                                                       |
+
+### Calendar time with 3-4 engineers
+
+| Week | Work                                                                                                                   |
+| ---- | ---------------------------------------------------------------------------------------------------------------------- |
+| 1-2  | Model providers (2 engineers), interrupts protocol design (1 engineer), Python small fixes (1 engineer)                |
+| 3-4  | Bidi + A2A (1-2 engineers), guardrails end-to-end (1 engineer), session managers + MCP fixes (1 engineer)              |
+| 5-6  | Telemetry + remaining TS features (1-2 engineers), remaining test fixes (1 engineer), integration testing (1 engineer) |
+| 7-8  | Polish, CI, release prep, Swift wrapper if desired                                                                     |
+
+### Risks
+
+1. Interrupts are a protocol design problem, not just implementation. If the pause/resume semantics take multiple iterations to get right, this becomes the critical path. 13 tests depend on it.
+2. Bidi is the largest single TS feature (~3,000 lines) and requires host-side WebSocket/audio I/O imports in the WIT contract. This is new territory for the stack.
+3. The historical velocity assumes engineers already familiar with the codebase. New engineers will be slower in weeks 1-2.
+
+The mitigations: model providers are mechanical and parallelize well (7 providers, ~350-430 lines each, independent of each other). The small/medium test fixes can ship continuously. The Kotlin proof-of-concept confirms the per-language projection is accurate.

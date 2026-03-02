@@ -53,7 +53,7 @@ One paragraph that captures the full argument. If someone skips to the end, this
 
 ## Q&A
 
-Direct answers to the questions people will ask, sorted by importance. "Does this break the Python SDK?" No. "Will development be harder?" Yes, and here's why it's worth it. "Why Rust?" Because the alternative doesn't support the networking the SDK needs.
+Direct answers to the questions people will ask, sorted by importance. "Does this break the Python SDK?" No. "Will development be harder?" Yes, and here's why it's worth it. "How long?" 6-8 weeks with 3-4 engineers, rough estimate. "Why Rust?" Because the alternative doesn't support the networking the SDK needs.
 
 ## Glossary
 
@@ -85,4 +85,8 @@ What Python has that TypeScript doesn't. 42% unmatched, mostly model providers a
 
 ## Appendix G: Test status
 
-54 of 106 upstream tests pass. Most likely failures were addressed first. No fundamental blockers in the remaining failures.
+54 of 106 upstream tests pass. No fundamental blockers in the remaining failures.
+
+## Appendix H: Delivery estimate
+
+14-18 person-weeks to full parity. 6-8 calendar weeks with 3-4 engineers. Beyond 4, gains are marginal. Rough estimate backed by historical velocity data.
