@@ -4,7 +4,7 @@ import com.strands.StreamEvent;
 import com.strands.Tool;
 import java.util.List;
 
-public class BasicAgent {
+public class Calculator {
     public static void main(String[] args) {
         var calculator = new Tool(
             "calculator",

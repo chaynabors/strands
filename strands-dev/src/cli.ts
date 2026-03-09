@@ -89,6 +89,7 @@ program
   .command("example")
   .description("Run an example by name")
   .argument("<name>", "Example name")
+  .option("--rs", "Run a Rust example (default)")
   .option("--py", "Run a Python example")
   .option("--ts", "Run a TypeScript example")
   .option("--kt", "Run the Kotlin example")

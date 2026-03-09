@@ -11,7 +11,7 @@ repositories {
 }
 
 application {
-    mainClass.set("BasicAgentKt")
+    mainClass.set("CalculatorKt")
 }
 
 tasks.named<JavaExec>("run") {

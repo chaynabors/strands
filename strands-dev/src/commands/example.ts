@@ -1,6 +1,7 @@
 import { run, ROOT } from "../run.js";
 
 export interface ExampleOptions {
+  rs?: boolean;
   py?: boolean;
   ts?: boolean;
   kt?: boolean;

@@ -12,7 +12,7 @@ repositories {
 }
 
 application {
-    mainClass.set("BasicAgent")
+    mainClass.set("Calculator")
 }
 
 tasks.named<JavaExec>("run") {
