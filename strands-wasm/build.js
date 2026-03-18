@@ -21,7 +21,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { build } from 'esbuild';
-import { componentize } from '@bytecodealliance/componentize-js';
+import { componentize } from '@chaynabors/componentize-js';
 
 mkdirSync('dist', { recursive: true });
 

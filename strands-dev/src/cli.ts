@@ -1,45 +1,30 @@
 #!/usr/bin/env tsx
 
+import { execSync } from "node:child_process";
+import { globSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { program } from "commander";
-import { setup } from "./commands/setup.js";
-import { build } from "./commands/build.js";
-import { test } from "./commands/test.js";
-import { check } from "./commands/check.js";
-import { fmt } from "./commands/fmt.js";
-import { generate } from "./commands/generate.js";
-import { example } from "./commands/example.js";
-import { clean } from "./commands/clean.js";
-import { upgrade } from "./commands/upgrade.js";
-import { ci } from "./commands/ci.js";
+
+const ROOT = resolve(import.meta.dirname, "..");
+const PY = `${ROOT}/strands-py`;
 
 process.env.PYTHONPYCACHEPREFIX ??= ".pycache";
 
-program
-  .name("strands-dev")
-  .description(
-    `Strands monorepo development CLI
+program.name("strands-dev").description(
+  `Strands monorepo development CLI
 
 Build pipeline (each step feeds the next):
   wit/agent.wit -> strands-ts -> strands-wasm -> strands-rs -> strands-py
 
 Most commands accept layer flags (--ts, --rs, --py, --wasm).
-No flags = run all layers.
-
-Dependency rules:
-  TS SDK changes only need a downstream rebuild if the public API changed.
-  WASM depends on TS and is rebuilt automatically.
-  Rust host reads the .wasm at build time (AOT-compiled to .cwasm).
-  Python extension wraps Rust via PyO3 and maturin.
-  Pure Python is editable-installed and never needs a rebuild.
-  WIT contract changes require a full generate + build.
-  Derive macro changes cascade into the Rust host.`,
-  );
+No flags = run all layers.`,
+);
 
 program
   .command("setup")
   .description("Install toolchains and dependencies")
   .option("--rust", "Rust stable, wasm32-wasip2, cargo tools")
-  .option("--node", "npm install and ComponentizeJS symlink")
+  .option("--node", "npm install")
   .option("--python", "Create venv, install maturin, ruff, componentize-py")
   .action((opts) => setup(opts));
 
@@ -94,7 +79,14 @@ program
   .option("--ts", "Run a TypeScript example")
   .option("--kt", "Run the Kotlin example")
   .option("--java", "Run the Java example")
-  .action((name, opts) => example(name, opts));
+  .action((name, opts) => {
+    if (opts.py) py(`.venv/bin/python examples/${name}.py`);
+    else if (opts.ts)
+      run("npm start", { cwd: `${ROOT}/strands-ts/examples/${name}` });
+    else if (opts.kt) gradle(":examples-kt:run");
+    else if (opts.java) gradle(":examples-java:run");
+    else run(`cargo run -p strands --example ${name}`);
+  });
 
 program
   .command("clean")
@@ -105,11 +97,279 @@ program
   .command("upgrade")
   .description("Bump Rust dependencies to latest compatible versions")
   .option("--incompatible", "Include major version bumps")
-  .action((opts) => upgrade(opts));
+  .action((opts) =>
+    run(`cargo upgrade${opts.incompatible ? " --incompatible" : ""}`),
+  );
 
 program
   .command("ci")
   .description("Full CI pipeline")
-  .action(() => ci());
+  .action(() => {
+    generate({ check: true });
+    fmt({ check: true });
+    check();
+    build();
+    test();
+  });
+
+program
+  .command("bootstrap")
+  .description("First-time setup, generate, build, and test")
+  .action(() => {
+    setup();
+    generate();
+    build();
+    test();
+  });
+
+program
+  .command("rebuild")
+  .description("Clean rebuild from scratch")
+  .action(() => {
+    clean();
+    generate();
+    build();
+  });
+
+const VALIDATE_LAYERS = [
+  "wit",
+  "ts",
+  "ts-api",
+  "wasm",
+  "rs",
+  "py-bindings",
+  "py",
+] as const;
+
+program
+  .command("validate")
+  .description("Validate changes to a specific layer")
+  .argument("<layer>", `Layer: ${VALIDATE_LAYERS.join(", ")}`)
+  .action((layer: string) => {
+    switch (layer) {
+      case "wit":
+        generate();
+        build();
+        test();
+        break;
+      case "ts":
+        build({ ts: true });
+        test({ ts: true });
+        break;
+      case "ts-api":
+        build({ wasm: true });
+        test({ rs: true });
+        test({ ts: true });
+        break;
+      case "wasm":
+        build({ wasm: true });
+        test({ rs: true });
+        break;
+      case "rs":
+        check({ rs: true });
+        build({ rs: true });
+        test({ rs: true });
+        break;
+      case "py-bindings":
+        check({ rs: true });
+        build({ py: true });
+        test({ py: true });
+        break;
+      case "py":
+        check({ py: true });
+        test({ py: true });
+        break;
+      default:
+        console.error(
+          `Unknown layer: ${layer}\nValid layers: ${VALIDATE_LAYERS.join(", ")}`,
+        );
+        process.exit(1);
+    }
+  });
 
 program.parse();
+
+function run(cmd: string, opts?: { cwd?: string }): void {
+  execSync(cmd, { stdio: "inherit", cwd: opts?.cwd ?? ROOT });
+}
+
+function py(cmd: string): void {
+  run(cmd, { cwd: PY });
+}
+
+function gradle(tasks: string): void {
+  run(`./strands-kt/gradlew -p strands-kt ${tasks}`);
+}
+
+function setup(opts?: {
+  rust?: boolean;
+  node?: boolean;
+  python?: boolean;
+}): void {
+  const all = !opts?.rust && !opts?.node && !opts?.python;
+  if (all || opts?.rust) {
+    run("rustup update stable");
+    run("rustup target add wasm32-wasip2");
+    run("cargo install cargo-machete cargo-upgrade");
+  }
+  if (all || opts?.node) run("npm install");
+  if (all || opts?.python) {
+    py("python3 -m venv .venv");
+    py(".venv/bin/pip install maturin ruff componentize-py");
+  }
+}
+
+function build(opts?: {
+  ts?: boolean;
+  wasm?: boolean;
+  rs?: boolean;
+  py?: boolean;
+  kt?: boolean;
+  release?: boolean;
+}): void {
+  const all = !opts?.ts && !opts?.wasm && !opts?.rs && !opts?.py && !opts?.kt;
+  const rel = opts?.release ? " --release" : "";
+
+  if (all || opts?.ts) run("npm run build -w strands-ts");
+  if (all || opts?.wasm) {
+    if (!all && !opts?.ts) run("npm run build -w strands-ts");
+    run("npm run build -w strands-wasm");
+  }
+  if (all || opts?.rs) run(`cargo build -p strands${rel}`);
+  if (all || opts?.kt) {
+    const profile = opts?.release ? "release" : "debug";
+    const ext =
+      process.platform === "win32"
+        ? "dll"
+        : process.platform === "darwin"
+          ? "dylib"
+          : "so";
+    const libName =
+      process.platform === "win32" ? `strands.${ext}` : `libstrands.${ext}`;
+    run(`cargo rustc -p strands --features uniffi --crate-type cdylib${rel}`);
+    run("rm -f strands-kt/lib/src/main/kotlin/uniffi/strands/strands.kt");
+    run(
+      `cargo run -p uniffi-bindgen -- generate --library target/${profile}/${libName} --language kotlin --out-dir strands-kt/lib/src/main/kotlin/ --no-format`,
+    );
+    gradle(
+      ":lib:compileKotlin :examples-kt:compileKotlin :examples-java:compileJava",
+    );
+  }
+  if (all || opts?.py) {
+    py(
+      opts?.release
+        ? ".venv/bin/maturin build --release --bindings pyo3"
+        : ".venv/bin/maturin develop -E test --bindings pyo3",
+    );
+    stubs();
+  }
+}
+
+function stubs(): void {
+  const lib = globSync("strands-py/strands/_strands*.{so,dylib}", {
+    cwd: ROOT,
+  })[0];
+  if (lib) {
+    run(
+      `cargo run -p strands --features stubs --bin strands-stubs -- ${lib} -m _strands -o strands-py/strands/`,
+    );
+  }
+}
+
+function test(opts?: {
+  rs?: boolean;
+  py?: boolean;
+  ts?: boolean;
+  kt?: boolean;
+  file?: string;
+}): void {
+  const all = !opts?.rs && !opts?.py && !opts?.ts && !opts?.kt;
+  if (all || opts?.rs) run("cargo test -p strands");
+  if (all || opts?.py)
+    py(
+      opts?.file
+        ? `.venv/bin/pytest tests_integ/${opts.file} -v`
+        : ".venv/bin/pytest",
+    );
+  if (all || opts?.ts) run("npm test -w strands-ts");
+  if (all || opts?.kt) gradle(":lib:test");
+}
+
+function check(opts?: {
+  rs?: boolean;
+  ts?: boolean;
+  py?: boolean;
+  kt?: boolean;
+}): void {
+  const all = !opts?.rs && !opts?.ts && !opts?.py && !opts?.kt;
+  if (all || opts?.rs) {
+    run("cargo clippy --workspace -- -D warnings");
+    run("cargo clippy -p strands --features pyo3 -- -D warnings");
+  }
+  if (all || opts?.py) py(".venv/bin/ruff check strands/ tests_integ/");
+  if (all || opts?.ts) run("npm run type-check --workspaces --if-present");
+  if (all || opts?.kt)
+    gradle(
+      ":lib:compileKotlin :examples-kt:compileKotlin :examples-java:compileJava",
+    );
+}
+
+function fmt(opts?: { check?: boolean }): void {
+  const flag = opts?.check ? " --check" : "";
+  run(`cargo fmt --all${flag}`);
+  run(
+    `npx prettier ${opts?.check ? "--check" : "--write"} 'strands-wasm/**/*.ts' 'strands-ts/**/*.ts' --ignore-path .gitignore`,
+  );
+  py(`.venv/bin/ruff format${flag} strands/ tests_integ/`);
+}
+
+function generate(opts?: { check?: boolean }): void {
+  run("npm run generate -w strands-ts");
+  run("npm run generate -w strands-wasm");
+
+  for (const dir of ["strands-wasm/generated", "strands-ts/generated"]) {
+    for (const file of globSync("**/*.d.ts", { cwd: join(ROOT, dir) })) {
+      const path = join(ROOT, dir, file);
+      const content = readFileSync(path, "utf-8");
+      if (!content.startsWith("// @generated")) {
+        writeFileSync(
+          path,
+          `// @generated from wit/agent.wit -- do not edit\n\n${content}`,
+        );
+      }
+    }
+  }
+
+  run(
+    `python3 ${resolve(import.meta.dirname, "scripts/generate_py.py")} ${ROOT}`,
+  );
+
+  if (opts?.check) {
+    try {
+      execSync(
+        "git diff --quiet -- strands-wasm/generated/ strands-ts/generated/ strands-py/strands/generated/",
+        { cwd: ROOT },
+      );
+    } catch {
+      console.error(
+        "error: generated files are out of date -- run 'strands-dev generate' and commit",
+      );
+      run(
+        "git diff --stat -- strands-wasm/generated/ strands-ts/generated/ strands-py/strands/generated/",
+      );
+      process.exit(1);
+    }
+  }
+}
+
+function clean(): void {
+  run("cargo clean");
+  try {
+    run("npm run clean --workspaces");
+  } catch {}
+  run("rm -rf strands-py/target strands-py/.venv");
+  try {
+    gradle("clean");
+  } catch {}
+  run("rm -f strands-kt/lib/src/main/kotlin/uniffi/strands/strands.kt");
+}
