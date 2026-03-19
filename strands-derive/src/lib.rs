@@ -6,10 +6,10 @@ use syn::{
     parse_macro_input,
 };
 
-/// Derive macro that auto-generates FFI wrapper types from `wasmtime::component::bindgen!` output.
+/// Derive macro that generates UniFFI-compatible wrapper types from wasmtime bindgen output.
 ///
-/// For each WIT enum, record, or variant it generates a PyO3/UniFFI-compatible
-/// struct (suffixed with `_`) and a `From<WitType>` impl for zero-boilerplate conversion.
+/// For each WIT enum, record, or variant it generates a flat struct (suffixed with `_`)
+/// with `#[derive(uniffi::Record)]` and a `From<WitType>` impl.
 #[proc_macro_derive(Export, attributes(component))]
 pub fn export_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -25,26 +25,17 @@ fn export_derive_inner(input: &DeriveInput) -> syn::Result<TokenStream2> {
         None => return Ok(TokenStream2::new()),
     };
 
-    let wrapper = match kind.as_str() {
-        "enum" => gen_wrapper_enum(input)?,
-        "record" => gen_wrapper_record(input)?,
-        "variant" => gen_wrapper_variant(input)?,
-        _ => TokenStream2::new(),
-    };
-
-    // Generate `from_py_dict` extraction impls for records (Python dict → WIT type).
-    let extract = match kind.as_str() {
-        "record" => gen_extract_record(input)?,
-        _ => TokenStream2::new(),
-    };
-
-    Ok(quote! { #wrapper #extract })
+    match kind.as_str() {
+        "enum" => gen_wrapper_enum(input),
+        "record" => gen_wrapper_record(input),
+        "variant" => gen_wrapper_variant(input),
+        _ => Ok(TokenStream2::new()),
+    }
 }
 
-/// Generates a PyO3/UniFFI wrapper for a WIT enum.
-/// Maps variants to a simple struct containing a string value.
 fn gen_wrapper_enum(input: &DeriveInput) -> syn::Result<TokenStream2> {
-    let (name, wrapper, attrs) = wrapper_header(input);
+    let name = &input.ident;
+    let wrapper = format_ident!("{}_", name);
     let Data::Enum(data) = &input.data else {
         return Ok(TokenStream2::new());
     };
@@ -60,11 +51,9 @@ fn gen_wrapper_enum(input: &DeriveInput) -> syn::Result<TokenStream2> {
         .collect::<syn::Result<Vec<_>>>()?;
 
     Ok(quote! {
-        #attrs
-        #[derive(Clone)]
+        #[derive(Clone, uniffi::Record)]
         pub struct #wrapper { pub value: String }
 
-        #[cfg(any(feature = "pyo3", feature = "uniffi"))]
         impl From<#name> for #wrapper {
             fn from(v: #name) -> Self {
                 Self { value: match v { #(#arms,)* }.to_string() }
@@ -73,9 +62,9 @@ fn gen_wrapper_enum(input: &DeriveInput) -> syn::Result<TokenStream2> {
     })
 }
 
-/// Generates a PyO3/UniFFI wrapper for a WIT record.
 fn gen_wrapper_record(input: &DeriveInput) -> syn::Result<TokenStream2> {
-    let (name, wrapper, attrs) = wrapper_header(input);
+    let name = &input.ident;
+    let wrapper = format_ident!("{}_", name);
     let Data::Struct(data) = &input.data else {
         return Ok(TokenStream2::new());
     };
@@ -104,21 +93,18 @@ fn gen_wrapper_record(input: &DeriveInput) -> syn::Result<TokenStream2> {
         .collect::<syn::Result<Vec<_>>>()?;
 
     Ok(quote! {
-        #attrs
-        #[derive(Clone)]
+        #[derive(Clone, uniffi::Record)]
         pub struct #wrapper { #(#defs,)* }
 
-        #[cfg(any(feature = "pyo3", feature = "uniffi"))]
         impl From<#name> for #wrapper {
             fn from(v: #name) -> Self { Self { #(#convs,)* } }
         }
     })
 }
 
-/// Generates a PyO3/UniFFI wrapper for a WIT variant.
-/// Flattens the variant into a struct with a `kind` discriminator and optional payload fields.
 fn gen_wrapper_variant(input: &DeriveInput) -> syn::Result<TokenStream2> {
-    let (name, wrapper, attrs) = wrapper_header(input);
+    let name = &input.ident;
+    let wrapper = format_ident!("{}_", name);
     let Data::Enum(data) = &input.data else {
         return Ok(TokenStream2::new());
     };
@@ -164,96 +150,13 @@ fn gen_wrapper_variant(input: &DeriveInput) -> syn::Result<TokenStream2> {
         .collect::<syn::Result<Vec<_>>>()?;
 
     Ok(quote! {
-        #attrs
-        #[derive(Clone, Default)]
+        #[derive(Clone, Default, uniffi::Record)]
         pub struct #wrapper { pub kind: String, #(#fields,)* }
 
-        #[cfg(any(feature = "pyo3", feature = "uniffi"))]
         impl From<#name> for #wrapper {
             fn from(v: #name) -> Self { match v { #(#arms,)* } }
         }
     })
-}
-
-/// Generate `Type::from_py_dict(&PyAny) -> PyResult<Self>` for WIT records.
-///
-/// `Option<T>` fields yield `None` when the key is missing, but raise a
-/// `TypeError` if the key exists with an incompatible type. Required fields
-/// raise `TypeError` on missing or wrong-type values.
-///
-/// Only emits for records whose fields are all PyO3-extractable primitives
-/// (after unwrapping Option). Skips records with enum, record, or Vec inner
-/// types since those don't implement `FromPyObject`.
-fn gen_extract_record(input: &DeriveInput) -> syn::Result<TokenStream2> {
-    let name = &input.ident;
-    let name_str = name.to_string();
-    let Data::Struct(data) = &input.data else {
-        return Ok(TokenStream2::new());
-    };
-    let Fields::Named(fields) = &data.fields else {
-        return Ok(TokenStream2::new());
-    };
-
-    for f in &fields.named {
-        let leaf = unpack(&f.ty, "Option").unwrap_or(&f.ty);
-        if !is_primitive(leaf) {
-            return Ok(TokenStream2::new());
-        }
-    }
-
-    let extractions = fields
-        .named
-        .iter()
-        .map(|f| {
-            let id = field_ident(f)?;
-            let key = id.to_string();
-            let ty_name = primitive_display_name(&f.ty);
-            if let Some(inner) = unpack(&f.ty, "Option") {
-                let inner_name = primitive_display_name(inner);
-                // Missing key → None. Present but wrong type → TypeError.
-                Ok(quote! {
-                    #id: match pyo3::types::PyAnyMethods::get_item(obj, #key) {
-                        Ok(v) => Some(pyo3::types::PyAnyMethods::extract::<#inner>(&v)
-                            .map_err(|_| pyo3::exceptions::PyTypeError::new_err(
-                                format!("{}.{}: expected {}", #name_str, #key, #inner_name)
-                            ))?),
-                        Err(_) => None,
-                    }
-                })
-            } else {
-                let ty = &f.ty;
-                // Missing or wrong type → TypeError.
-                Ok(quote! {
-                    #id: pyo3::types::PyAnyMethods::get_item(obj, #key)
-                        .and_then(|v| pyo3::types::PyAnyMethods::extract::<#ty>(&v))
-                        .map_err(|_| pyo3::exceptions::PyTypeError::new_err(
-                            format!("{}.{}: expected {}", #name_str, #key, #ty_name)
-                        ))?
-                })
-            }
-        })
-        .collect::<syn::Result<Vec<_>>>()?;
-
-    Ok(quote! {
-        #[cfg(feature = "pyo3")]
-        impl #name {
-            pub fn from_py_dict(obj: &pyo3::Bound<'_, pyo3::PyAny>) -> pyo3::PyResult<Self> {
-                Ok(Self { #(#extractions,)* })
-            }
-        }
-    })
-}
-
-fn wrapper_header(input: &DeriveInput) -> (Ident, Ident, TokenStream2) {
-    let name = input.ident.clone();
-    let wrapper = format_ident!("{}_", name);
-    let name_str = name.to_string();
-    let attrs = quote! {
-        #[doc = "@generated by strands-derive"]
-        #[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen, get_all, name = #name_str, skip_from_py_object))]
-        #[cfg_attr(all(feature = "uniffi", not(feature = "pyo3")), derive(uniffi::Record))]
-    };
-    (name, wrapper, attrs)
 }
 
 fn field_ident(f: &Field) -> syn::Result<&Ident> {
@@ -262,7 +165,6 @@ fn field_ident(f: &Field) -> syn::Result<&Ident> {
         .ok_or_else(|| syn::Error::new_spanned(f, "expected named field"))
 }
 
-/// Recursively maps WIT types to their `_`-suffixed wrapper counterparts.
 fn map_type(ty: &Type) -> TokenStream2 {
     if let Some(inner) = unpack(ty, "Option") {
         let t = map_type(inner);
@@ -352,12 +254,6 @@ fn get_ident(ty: &Type) -> Option<&Ident> {
     } else {
         None
     }
-}
-
-/// Human-readable type name for error messages (e.g. "String" not "wasmtime::...::String").
-fn primitive_display_name(ty: &Type) -> String {
-    let leaf = unpack(ty, "Option").unwrap_or(ty);
-    get_ident(leaf).map_or("unknown".into(), |id| id.to_string())
 }
 
 fn is_primitive(ty: &Type) -> bool {

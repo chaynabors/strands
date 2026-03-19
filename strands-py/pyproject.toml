@@ -21,9 +21,9 @@ test = [
 
 [tool.maturin]
 manifest-path = "../strands-rs/Cargo.toml"
-features = ["pyo3/extension-module"]
+bindings = "uniffi"
 python-source = "."
-module-name = "strands._strands"
+module-name = "strands._generated"
 
 [tool.pytest.ini_options]
 testpaths = ["tests_integ"]

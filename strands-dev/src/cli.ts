@@ -261,7 +261,7 @@ function build(opts?: {
           : "so";
     const libName =
       process.platform === "win32" ? `strands.${ext}` : `libstrands.${ext}`;
-    run(`cargo rustc -p strands --features uniffi --crate-type cdylib${rel}`);
+    run(`cargo rustc -p strands --crate-type cdylib${rel}`);
     run("rm -f strands-kt/lib/src/main/kotlin/uniffi/strands/strands.kt");
     run(
       `cargo run -p uniffi-bindgen -- generate --library target/${profile}/${libName} --language kotlin --out-dir strands-kt/lib/src/main/kotlin/ --no-format`,
@@ -271,23 +271,10 @@ function build(opts?: {
     );
   }
   if (all || opts?.py) {
-    py(
-      opts?.release
-        ? ".venv/bin/maturin build --release --bindings pyo3"
-        : ".venv/bin/maturin develop -E test --bindings pyo3",
-    );
-    stubs();
-  }
-}
-
-function stubs(): void {
-  const lib = globSync("strands-py/strands/_strands*.{so,dylib}", {
-    cwd: ROOT,
-  })[0];
-  if (lib) {
-    run(
-      `cargo run -p strands --features stubs --bin strands-stubs -- ${lib} -m _strands -o strands-py/strands/`,
-    );
+    const maturinCmd = opts?.release
+      ? ".venv/bin/maturin build --release --bindings uniffi"
+      : ".venv/bin/maturin develop -E test --bindings uniffi";
+    py(maturinCmd);
   }
 }
 

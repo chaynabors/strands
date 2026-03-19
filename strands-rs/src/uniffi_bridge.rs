@@ -125,6 +125,7 @@ impl Agent {
     pub fn new(
         model: Option<ModelConfigInput>,
         system_prompt: Option<String>,
+        system_prompt_blocks: Option<String>,
         tools: Option<Vec<ToolSpecConfig>>,
         tool_dispatcher: Option<Arc<dyn ToolDispatcher>>,
         log_handler: Option<Arc<dyn LogHandler>>,
@@ -145,6 +146,10 @@ impl Agent {
 
         if let Some(sp) = system_prompt {
             builder = builder.system_prompt(sp);
+        }
+
+        if let Some(blocks) = system_prompt_blocks {
+            builder = builder.system_prompt_blocks(blocks);
         }
 
         if let Some(ref tool_specs) = tools {

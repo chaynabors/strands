@@ -17,14 +17,9 @@ version = "0.1.0"
 [workspace.dependencies]
 anyhow = "1"
 async-stream = "0.3"
-clap = { version = "4", features = ["derive"] }
 futures-core = "0.3"
 proc-macro2 = "1"
-pyo3 = "0.28"
-pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
-pyo3-introspection = "0.28"
 quote = "1"
-serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 strands-derive = { path = "strands-derive" }
 syn = "2"

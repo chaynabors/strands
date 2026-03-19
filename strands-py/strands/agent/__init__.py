@@ -15,7 +15,13 @@ from strands._conversions import (
     resolve_model,
     stop_reason_to_snake,
 )
-from strands._strands import Agent as _RustAgent
+from strands._generated import (
+    Agent as _RustAgent,
+    LogHandler as _LogHandlerBase,
+    ModelConfigInput as _ModelConfigInput,
+    ToolDispatcher as _ToolDispatcherBase,
+    ToolSpecConfig as _ToolSpecConfig,
+)
 from strands.hooks import AfterToolCallEvent, HookProvider, HookRegistry
 from strands.tools import DecoratedTool
 from strands.types.exceptions import ContextOverflowError, MaxTokensReachedException, ToolProviderException
@@ -112,6 +118,35 @@ class AgentResult:
 
     def __repr__(self) -> str:
         return f"AgentResult(stop_reason={self.stop_reason!r}, text={self.text[:80]!r})"
+
+
+class _ToolDispatcher(_ToolDispatcherBase):
+    """Routes tool calls from the WASM guest to Python handlers."""
+
+    def __init__(self) -> None:
+        self._handlers: dict[str, Callable[[str, str], str]] = {}
+
+    def register(self, name: str, handler: Callable[[str, str], str]) -> None:
+        self._handlers[name] = handler
+
+    def unregister(self, name: str) -> None:
+        self._handlers.pop(name, None)
+
+    def call_tool(self, name: str, input: str, tool_use_id: str) -> str:
+        handler = self._handlers.get(name)
+        if handler is None:
+            return json.dumps({"status": "error", "content": [{"text": f"unknown tool: {name}"}]})
+        return handler(input, tool_use_id)
+
+
+class _LogHandler(_LogHandlerBase):
+    """Routes WASM guest log entries to Python's logging framework."""
+
+    def log(self, level: str, message: str, context: str | None) -> None:
+        logger = logging.getLogger("strands.wasm")
+        py_level = {"error": 40, "warn": 30, "info": 20, "debug": 10, "trace": 10}.get(level, 20)
+        msg = f"{message} | {context}" if context else message
+        logger.log(py_level, msg)
 
 
 class _ToolRegistryProxy:
@@ -214,6 +249,7 @@ class Agent:
         self._tools_dir_mtimes: dict[str, float] = {}
         self._printer = printer
 
+        self._dispatcher = _ToolDispatcher()
         rust_tools = self._register_tools(tools) if tools is not None else None
 
         if load_tools_from_directory:
@@ -228,22 +264,52 @@ class Agent:
                 else json.dumps(system_prompt_blocks)
             )
         elif isinstance(system_prompt, list):
-            # List system_prompt = content blocks, not a string
             sp_blocks = json.dumps(system_prompt)
             sp_str = None
 
+        model_config = self._build_model_config(resolve_model(model))
+        tool_specs = (
+            [
+                _ToolSpecConfig(
+                    name=t["name"],
+                    description=t["description"],
+                    input_schema=json.dumps(t.get("inputSchema", {})),
+                )
+                for t in rust_tools
+            ]
+            if rust_tools
+            else None
+        )
+
         self._rust_agent = _RustAgent(
-            model=resolve_model(model),
+            model=model_config,
             system_prompt=sp_str,
             system_prompt_blocks=sp_blocks,
-            tools=rust_tools,
+            tools=tool_specs,
+            tool_dispatcher=self._dispatcher,
+            log_handler=_LogHandler(),
         )
 
         if messages is not None:
             self._rust_agent.set_messages(json.dumps(messages))
 
+    @staticmethod
+    def _build_model_config(model_dict: dict[str, Any] | None) -> _ModelConfigInput | None:
+        if model_dict is None:
+            return None
+        return _ModelConfigInput(
+            provider=model_dict.get("provider", "bedrock"),
+            model_id=model_dict.get("model_id"),
+            api_key=model_dict.get("api_key"),
+            region=model_dict.get("region"),
+            access_key_id=model_dict.get("access_key_id"),
+            secret_access_key=model_dict.get("secret_access_key"),
+            session_token=model_dict.get("session_token"),
+            additional_config=model_dict.get("additional_config"),
+        )
+
     def _register_tools(self, tools: list[Any]) -> list[dict[str, Any]]:
-        """Parse a tools list into the local tool map and Rust-side specs.
+        """Parse a tools list into the local tool map and dispatcher.
 
         Handles DecoratedTool, dict specs, and MCPClient/ToolProvider instances
         (which are expanded via list_tools_sync()).
@@ -256,20 +322,21 @@ class Agent:
                     spec=t.tool_spec,
                     context_param=t.context_param,
                 )
+                handler = t.make_handler(agent_ref=self)
+                self._dispatcher.register(t.tool_name, handler)
                 rust_tools.append({
                     "name": t.tool_name,
                     "description": t.tool_spec["description"],
                     "inputSchema": t.tool_spec.get("inputSchema", {}),
-                    "handler": t.make_handler(agent_ref=self),
                 })
             elif isinstance(t, dict):
                 td = cast(dict[str, Any], t)
                 if "handler" in td:
                     spec = {k: v for k, v in td.items() if k != "handler"}
                     self._tool_map[td["name"]] = ToolEntry(func=td["handler"], spec=spec)
+                    self._dispatcher.register(td["name"], td["handler"])
                 rust_tools.append({k: v for k, v in td.items() if k != "handler"})
             elif hasattr(t, "tool_name") and hasattr(t, "tool_spec") and callable(t):
-                # _MCPTool or any tool-like object with tool_name, tool_spec, and __call__
                 name = t.tool_name
                 spec = t.tool_spec
                 agent_ref = self
@@ -292,15 +359,14 @@ class Agent:
                     return handler
 
                 self._tool_map[name] = ToolEntry(func=_make_tool_callable(t), spec=spec)
+                handler = _make_tool_handler(t, agent_ref)
+                self._dispatcher.register(name, handler)
                 rust_tools.append({
                     "name": name,
                     "description": spec.get("description", ""),
                     "inputSchema": spec.get("inputSchema", {}),
-                    "handler": _make_tool_handler(t, agent_ref),
                 })
             elif hasattr(t, "list_tools_sync"):
-                # MCPClient or ToolProvider — expand into individual tools.
-                # Auto-start if not already started (upstream Agent manages the lifecycle).
                 if hasattr(t, "start") and hasattr(t, "_tool_provider_started") and not t._tool_provider_started:
                     try:
                         t.start()
@@ -317,13 +383,11 @@ class Agent:
                     spec = mt.tool_spec
 
                     def _make_mcp_callable(mcp_tool: Any) -> Callable[..., Any]:
-                        """For direct tool access via agent.tool.<name>(**kwargs)."""
                         def func(**kwargs: Any) -> Any:
                             return mcp_tool(**kwargs)
                         return func
 
-                    def _make_mcp_rust_handler(mcp_tool: Any) -> Callable[[str, str], str]:
-                        """For Rust-side dispatch: handler(input_json, tool_use_id) -> result_json."""
+                    def _make_mcp_handler(mcp_tool: Any) -> Callable[[str, str], str]:
                         def handler(input_json: str, tool_use_id: str = "") -> str:
                             data = json.loads(input_json)
                             result = mcp_tool(**data)
@@ -331,11 +395,11 @@ class Agent:
                         return handler
 
                     self._tool_map[name] = ToolEntry(func=_make_mcp_callable(mt), spec=spec)
+                    self._dispatcher.register(name, _make_mcp_handler(mt))
                     rust_tools.append({
                         "name": name,
                         "description": spec.get("description", ""),
                         "inputSchema": spec.get("inputSchema", {}),
-                        "handler": _make_mcp_rust_handler(mt),
                     })
         return rust_tools
 
@@ -409,9 +473,24 @@ class Agent:
         tool_metrics: list[dict[str, Any]] = []
         pending_tool_start: dict[str, float] = {}
 
-        stream = await self._rust_agent.start_stream(
-            prompt, tools=tools, tool_choice=tool_choice,
-        )
+        if tools is not None or tool_choice is not None:
+            uniffi_tools = (
+                [
+                    _ToolSpecConfig(
+                        name=t["name"],
+                        description=t.get("description", ""),
+                        input_schema=json.dumps(t.get("inputSchema", {})),
+                    )
+                    for t in tools
+                ]
+                if tools
+                else None
+            )
+            stream = await self._rust_agent.start_stream_with_options(
+                prompt, uniffi_tools, tool_choice,
+            )
+        else:
+            stream = await self._rust_agent.start_stream(prompt)
         try:
             while True:
                 batch = await self._rust_agent.next_events(stream)
@@ -547,7 +626,7 @@ class Agent:
             except Exception as exc:
                 raise ValueError(f"Validation error: {exc}") from exc
 
-        self._rust_agent._register_handler(so_tool_name, so_handler)
+        self._dispatcher.register(so_tool_name, so_handler)
         try:
             existing_tools = [entry.spec for entry in self._tool_map.values()]
             all_tools = existing_tools + [so_tool_spec]
@@ -574,7 +653,7 @@ class Agent:
                 structured_output=so_result,
             )
         finally:
-            self._rust_agent._unregister_handler(so_tool_name)
+            self._dispatcher.unregister(so_tool_name)
 
     def __call__(self, prompt: Any = None, **kwargs: Any) -> AgentResult:
         import asyncio

@@ -149,16 +149,17 @@ notes = "GitHub Actions: generate --check, fmt --check, check, build, test acros
 
 [repository.contributing-guide]
 title = "Contributing guide"
-status = "in-progress"
+status = "done"
 size = "s"
 author = "chaynabors"
-notes = "CONTRIBUTING.md with architecture overview, dev CLI reference, and validation workflows."
+notes = "README.md with architecture overview, build pipeline diagram, dev CLI reference, and validation workflows."
 
 [exploratory.uniffi-replace-pyo3]
-title = "Can UniFFI replace PyO3?"
-status = "todo"
-size = "m"
-notes = "UniFFI already generates Kotlin bindings. If it can generate Python too, we drop PyO3 and strands-derive."
+title = "Replace PyO3 with UniFFI for Python"
+status = "done"
+size = "l"
+author = "chaynabors"
+notes = "Deleted python.rs, strands-stubs, all PyO3 deps. UniFFI generates Python bindings via maturin --bindings uniffi. One FFI system for all languages."
 
 [exploratory.flatten-python-imports]
 title = "Flatten Python import tree"
@@ -228,6 +229,13 @@ status = "done"
 size = "s"
 author = "chaynabors"
 notes = "Metrics dashboards and Grafana config don't belong in the SDK monorepo."
+
+[infrastructure.rust-sbom]
+title = "SBOM"
+status = "done"
+size = "xs"
+author = "chaynabors"
+notes = "Generate SBOM for OSS."
 
 [mono.wit-contract]
 title = "WIT contract design"
